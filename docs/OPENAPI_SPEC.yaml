@@ -1,0 +1,675 @@
+openapi: 3.0.3
+info:
+  title: NLP Smart Home API
+  description: |
+    # API de Procesamiento de Lenguaje Natural para Domótica
+
+    Este microservicio interpreta comandos de voz/texto en español y los convierte
+    en acciones estructuradas para sistemas de automatización del hogar.
+
+    ## Características
+
+    - **Pipeline Híbrido**: Combina reglas regex (~1ms) con LLM fallback (~2-5s)
+    - **Detección de Negaciones**: Soporta 5 tipos de negaciones en español
+    - **Extensible**: Fácil agregar nuevos dispositivos y patrones
+    - **Tolerante a Fallos**: Funciona sin Ollama usando reglas básicas
+
+    ## Arquitectura
+
+    ```
+    Texto → Normalización → Negación → Intent → Device → Resultado
+                                  ↓
+                            Ollama/Phi3 (si baja confianza)
+    ```
+
+    ## Códigos de Error
+
+    | Código | Descripción |
+    |--------|-------------|
+    | 200 | Éxito |
+    | 400 | Request inválido |
+    | 404 | Dispositivo no encontrado |
+    | 500 | Error interno del servidor |
+    | 503 | Servicio Ollama no disponible |
+
+  version: 1.0.0
+  contact:
+    name: NLP Smart Home Team
+    url: https://github.com/your-repo/nlp_ai_house
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8001
+    description: Servidor de desarrollo local
+  - url: http://nlp-service:8001
+    description: Servidor Docker/Kubernetes
+
+tags:
+  - name: NLP
+    description: Endpoints de procesamiento de lenguaje natural
+  - name: Devices
+    description: Gestión de dispositivos IoT
+  - name: Health
+    description: Monitoreo del servicio
+
+paths:
+  /interpret:
+    post:
+      tags:
+        - NLP
+      summary: Interpreta un comando de lenguaje natural
+      description: |
+        Procesa un texto en español y extrae:
+        - **Intent**: La intención del usuario (turn_on, turn_off, open, close, status, toggle)
+        - **Device**: El dispositivo IoT objetivo
+        - **Negated**: Si el comando está negado
+
+        ### Pipeline de Procesamiento
+
+        1. **Normalización**: Convierte a minúsculas, elimina acentos y puntuación
+        2. **Detección de Negación**: Busca patrones como "no", "nunca", "deja de"
+        3. **Intent Matching**: Busca patrones regex de intenciones
+        4. **Device Matching**: Busca el dispositivo en índice invertido
+        5. **Validación**: Si confianza < 0.8, usa Ollama/Phi3 como fallback
+
+        ### Ejemplos de Comandos Soportados
+
+        | Comando | Intent | Device | Negated |
+        |---------|--------|--------|---------|
+        | "enciende la luz del comedor" | turn_on | luz_comedor | false |
+        | "no enciendas la luz" | turn_on | luz_* | true |
+        | "abre la puerta del garage" | open | puerta_garage | false |
+        | "¿cómo está el aire acondicionado?" | status | aire_acondicionado | false |
+
+      operationId: interpretCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommandInput"
+            examples:
+              basic_command:
+                summary: Comando básico
+                value:
+                  text: "enciende la luz del comedor"
+              negated_command:
+                summary: Comando negado
+                value:
+                  text: "no enciendas la luz del comedor"
+              status_query:
+                summary: Consulta de estado
+                value:
+                  text: "¿cómo está el aire acondicionado?"
+              colloquial_command:
+                summary: Comando coloquial
+                value:
+                  text: "prende el foco de la recámara, porfa"
+      responses:
+        "200":
+          description: Interpretación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationResponse"
+              examples:
+                success_basic:
+                  summary: Respuesta exitosa básica
+                  value:
+                    success: true
+                    data:
+                      intent: "turn_on"
+                      device: "luz_comedor"
+                      negated: false
+                    original_text: "enciende la luz del comedor"
+                    confidence_note: null
+                success_negated:
+                  summary: Respuesta con negación
+                  value:
+                    success: true
+                    data:
+                      intent: "turn_on"
+                      device: "luz_comedor"
+                      negated: true
+                    original_text: "no enciendas la luz del comedor"
+                    confidence_note: null
+                low_confidence:
+                  summary: Baja confianza (usado Ollama)
+                  value:
+                    success: true
+                    data:
+                      intent: "turn_on"
+                      device: "luz_sala"
+                      negated: false
+                    original_text: "dale luz a la sala"
+                    confidence_note: "Interpretación por LLM (baja confianza en reglas)"
+                unknown:
+                  summary: Comando no reconocido
+                  value:
+                    success: true
+                    data:
+                      intent: "unknown"
+                      device: null
+                      negated: false
+                    original_text: "quiero pizza"
+                    confidence_note: "No se pudo identificar una intención válida"
+        "400":
+          description: Request inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "El campo 'text' es requerido"
+                code: "VALIDATION_ERROR"
+        "500":
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "Error interno del servidor"
+                code: "INTERNAL_ERROR"
+
+  /execute:
+    post:
+      tags:
+        - NLP
+      summary: Interpreta y ejecuta un comando
+      description: |
+        Similar a `/interpret`, pero además intenta ejecutar la acción
+        llamando al endpoint IoT configurado para el dispositivo.
+
+        ### Comportamiento con Negaciones
+
+        Si el comando está **negado** (`negated: true`), la acción **NO se ejecuta**
+        y se retorna un mensaje indicando que se respetó la negación.
+
+        ### Configuración de Endpoints
+
+        Los endpoints IoT se configuran en la base de datos o `devices.json`:
+
+        ```json
+        {
+          "luz_comedor": {
+            "endpoints": {
+              "turn_on": "http://iot-backend/api/devices/luz_comedor/on",
+              "turn_off": "http://iot-backend/api/devices/luz_comedor/off"
+            }
+          }
+        }
+        ```
+
+      operationId: executeCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommandInput"
+            examples:
+              execute_on:
+                summary: Ejecutar encendido
+                value:
+                  text: "enciende la luz del comedor"
+              execute_negated:
+                summary: Comando negado (no ejecuta)
+                value:
+                  text: "no enciendas la luz"
+      responses:
+        "200":
+          description: Interpretación y ejecución
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecuteResponse"
+              examples:
+                executed:
+                  summary: Comando ejecutado
+                  value:
+                    success: true
+                    interpretation:
+                      intent: "turn_on"
+                      device: "luz_comedor"
+                      negated: false
+                    execution:
+                      executed: true
+                      endpoint_called: "http://iot-backend/api/devices/luz_comedor/on"
+                      status_code: 200
+                      response:
+                        status: "ok"
+                    original_text: "enciende la luz del comedor"
+                negated_not_executed:
+                  summary: Comando negado (no ejecutado)
+                  value:
+                    success: true
+                    interpretation:
+                      intent: "turn_on"
+                      device: "luz_comedor"
+                      negated: true
+                    execution:
+                      executed: false
+                      reason: "Comando negado - no se ejecuta la acción"
+                      message: "Entendido, NO se ejecutará turn_on en luz_comedor"
+                    original_text: "no enciendas la luz del comedor"
+        "400":
+          description: Request inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Servicio IoT no disponible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "No se pudo conectar al servicio IoT"
+                code: "IOT_SERVICE_UNAVAILABLE"
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Verifica el estado del servicio
+      description: |
+        Retorna información sobre el estado del servicio NLP y sus dependencias.
+
+        ### Estados posibles de Ollama
+
+        | Estado | Descripción |
+        |--------|-------------|
+        | `connected` | Ollama está disponible y respondiendo |
+        | `disconnected` | Ollama no está disponible |
+        | `error` | Error al conectar con Ollama |
+
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              examples:
+                healthy:
+                  summary: Servicio completamente operativo
+                  value:
+                    status: "healthy"
+                    service: "NLP Service - Smart Home"
+                    version: "1.0.0"
+                    ollama_status: "connected"
+                degraded:
+                  summary: Servicio degradado (sin Ollama)
+                  value:
+                    status: "degraded"
+                    service: "NLP Service - Smart Home"
+                    version: "1.0.0"
+                    ollama_status: "disconnected"
+
+  /devices:
+    get:
+      tags:
+        - Devices
+      summary: Lista todos los dispositivos configurados
+      description: |
+        Retorna la lista completa de dispositivos IoT configurados en el sistema.
+        Cada dispositivo incluye su nombre, tipo, habitación y aliases.
+      operationId: listDevices
+      responses:
+        "200":
+          description: Lista de dispositivos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevicesListResponse"
+              example:
+                success: true
+                total: 3
+                devices:
+                  luz_comedor:
+                    name: "Luz del Comedor"
+                    type: "light"
+                    room: "comedor"
+                    aliases: ["luz comedor", "lámpara comedor"]
+                  ventilador_sala:
+                    name: "Ventilador de la Sala"
+                    type: "fan"
+                    room: "sala"
+                    aliases: ["ventilador sala", "abanico sala"]
+                  puerta_garage:
+                    name: "Puerta del Garage"
+                    type: "door"
+                    room: "garage"
+                    aliases: ["puerta garage", "portón"]
+
+  /devices/{device_key}:
+    get:
+      tags:
+        - Devices
+      summary: Obtiene información de un dispositivo
+      description: Retorna los detalles de un dispositivo específico por su clave.
+      operationId: getDevice
+      parameters:
+        - name: device_key
+          in: path
+          required: true
+          description: Clave única del dispositivo (ej. `luz_comedor`)
+          schema:
+            type: string
+            example: "luz_comedor"
+      responses:
+        "200":
+          description: Información del dispositivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceResponse"
+              example:
+                success: true
+                device_key: "luz_comedor"
+                device:
+                  name: "Luz del Comedor"
+                  type: "light"
+                  room: "comedor"
+                  aliases: ["luz comedor", "lámpara comedor"]
+        "404":
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "Dispositivo 'luz_xyz' no encontrado"
+                code: "DEVICE_NOT_FOUND"
+
+  /devices/reload:
+    post:
+      tags:
+        - Devices
+      summary: Recarga la configuración de dispositivos
+      description: |
+        Recarga la configuración de dispositivos desde `devices.json`.
+        Útil después de modificar el archivo de configuración.
+      operationId: reloadDevices
+      responses:
+        "200":
+          description: Dispositivos recargados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  total:
+                    type: integer
+              example:
+                success: true
+                message: "Dispositivos recargados exitosamente"
+                total: 22
+
+components:
+  schemas:
+    CommandInput:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          description: Comando de texto en español
+          minLength: 1
+          maxLength: 500
+          example: "enciende la luz del comedor"
+      example:
+        text: "enciende la luz del comedor"
+
+    IntentType:
+      type: string
+      description: |
+        Tipo de intención detectada:
+        - `turn_on`: Encender dispositivo
+        - `turn_off`: Apagar dispositivo
+        - `open`: Abrir dispositivo (puerta, ventana, cortina)
+        - `close`: Cerrar dispositivo
+        - `status`: Consultar estado
+        - `toggle`: Alternar estado
+        - `unknown`: No se pudo determinar
+      enum:
+        - turn_on
+        - turn_off
+        - open
+        - close
+        - status
+        - toggle
+        - unknown
+      example: "turn_on"
+
+    InterpretationResult:
+      type: object
+      required:
+        - intent
+        - device
+        - negated
+      properties:
+        intent:
+          $ref: "#/components/schemas/IntentType"
+        device:
+          type: string
+          nullable: true
+          description: Clave del dispositivo identificado (null si no se encontró)
+          example: "luz_comedor"
+        negated:
+          type: boolean
+          description: |
+            `true` si el comando contiene una negación.
+            Ejemplos de negaciones:
+            - "no enciendas la luz"
+            - "nunca abras la puerta"
+            - "deja de encender"
+          example: false
+
+    InterpretationResponse:
+      type: object
+      required:
+        - success
+        - data
+        - original_text
+      properties:
+        success:
+          type: boolean
+          description: Indica si la interpretación fue exitosa
+        data:
+          $ref: "#/components/schemas/InterpretationResult"
+        original_text:
+          type: string
+          description: Texto original enviado
+        confidence_note:
+          type: string
+          nullable: true
+          description: |
+            Nota adicional sobre la confianza de la interpretación.
+            Aparece cuando se usó el fallback LLM o hay baja confianza.
+
+    ExecuteResponse:
+      type: object
+      required:
+        - success
+        - interpretation
+        - execution
+        - original_text
+      properties:
+        success:
+          type: boolean
+        interpretation:
+          $ref: "#/components/schemas/InterpretationResult"
+        execution:
+          type: object
+          properties:
+            executed:
+              type: boolean
+              description: Si la acción fue ejecutada
+            endpoint_called:
+              type: string
+              description: URL del endpoint IoT llamado
+            status_code:
+              type: integer
+              description: Código de respuesta del servicio IoT
+            response:
+              type: object
+              description: Respuesta del servicio IoT
+            reason:
+              type: string
+              description: Razón por la que no se ejecutó (si aplica)
+            message:
+              type: string
+              description: Mensaje adicional
+        original_text:
+          type: string
+        confidence_note:
+          type: string
+          nullable: true
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - version
+        - ollama_status
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - degraded
+            - unhealthy
+          description: |
+            Estado general del servicio:
+            - `healthy`: Todos los componentes funcionando
+            - `degraded`: Funcional pero sin algunas características
+            - `unhealthy`: Servicio no funcional
+        service:
+          type: string
+          example: "NLP Service - Smart Home"
+        version:
+          type: string
+          example: "1.0.0"
+        ollama_status:
+          type: string
+          enum:
+            - connected
+            - disconnected
+            - error
+          description: Estado de conexión con Ollama
+
+    DevicesListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        total:
+          type: integer
+          description: Número total de dispositivos
+        devices:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/DeviceInfo"
+
+    DeviceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        device_key:
+          type: string
+        device:
+          $ref: "#/components/schemas/DeviceInfo"
+
+    DeviceInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Nombre descriptivo del dispositivo
+        type:
+          type: string
+          description: Tipo de dispositivo (light, fan, door, etc.)
+        room:
+          type: string
+          description: Habitación donde está ubicado
+        aliases:
+          type: array
+          items:
+            type: string
+          description: Lista de aliases/sinónimos
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+        - code
+      properties:
+        success:
+          type: boolean
+          default: false
+        error:
+          type: string
+          description: Mensaje de error descriptivo
+        code:
+          type: string
+          description: |
+            Código de error:
+            - `VALIDATION_ERROR`: Error de validación de datos
+            - `DEVICE_NOT_FOUND`: Dispositivo no encontrado
+            - `IOT_SERVICE_UNAVAILABLE`: Servicio IoT no disponible
+            - `OLLAMA_UNAVAILABLE`: Servicio Ollama no disponible
+            - `INTERNAL_ERROR`: Error interno del servidor
+
+  examples:
+    BasicInterpretation:
+      summary: Interpretación básica exitosa
+      value:
+        success: true
+        data:
+          intent: "turn_on"
+          device: "luz_comedor"
+          negated: false
+        original_text: "enciende la luz del comedor"
+
+    NegatedCommand:
+      summary: Comando con negación
+      value:
+        success: true
+        data:
+          intent: "turn_on"
+          device: "luz_comedor"
+          negated: true
+        original_text: "no enciendas la luz del comedor"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API Key para autenticación (opcional, para producción).
+        Configurar en variables de entorno.
+
+security: [] # Sin autenticación por defecto (desarrollo)
+
+externalDocs:
+  description: Documentación completa del módulo NLP
+  url: ./NLP_MODULE.md
