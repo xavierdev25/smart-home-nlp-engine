@@ -1,5 +1,6 @@
 """
 Router para endpoints de control por voz (STT/TTS)
+Bilingual voice control - Spanish and English support
 Permite enviar audio y recibir respuestas de voz
 """
 import logging
@@ -15,7 +16,7 @@ router = APIRouter(
     prefix="/voice",
     tags=["Voz"],
     responses={
-        500: {"description": "Error interno del servidor"}
+        500: {"description": "Internal server error / Error interno del servidor"}
     }
 )
 
@@ -25,15 +26,15 @@ router = APIRouter(
 # ============================================
 
 class TextToSpeechRequest(BaseModel):
-    """Request para síntesis de voz"""
-    text: str = Field(..., description="Texto a convertir en voz", min_length=1, max_length=1000)
+    """Request for voice synthesis / Solicitud de síntesis de voz"""
+    text: str = Field(..., description="Text to convert to speech", min_length=1, max_length=1000)
     voice: str = Field(
         default="es-MX-DaliaNeural",
-        description="Voz a utilizar (ver /voice/voices para opciones)"
+        description="Voice to use (see /voice/voices for options). ES: es-MX-DaliaNeural, EN: en-US-JennyNeural"
     )
     language: str = Field(
         default="es",
-        description="Idioma del texto ('es' o 'en')"
+        description="Text language: 'es' (Spanish) or 'en' (English)"
     )
 
 
@@ -95,20 +96,28 @@ def get_voice_assistant():
 @router.post(
     "/interpret",
     response_model=VoiceCommandResponse,
-    summary="Interpretar comando de voz",
+    summary="Interpret voice command / Interpretar comando de voz",
     description="""
-    Recibe un archivo de audio WAV y lo interpreta como comando domótico.
+    Receives a WAV audio file and interprets it as a smart home command.
+    Supports **Spanish** and **English** commands.
     
-    ## Formato de Audio Soportado
-    - **Formato**: WAV (PCM)
-    - **Sample Rate**: 16000 Hz (recomendado) o 44100 Hz
-    - **Canales**: Mono (1 canal)
+    ## Supported Audio Format
+    - **Format**: WAV (PCM)
+    - **Sample Rate**: 16000 Hz (recommended) or 44100 Hz
+    - **Channels**: Mono (1 channel)
     - **Bits**: 16-bit
     
-    ## Ejemplo con cURL
+    ## Example Commands / Comandos de Ejemplo
+    
+    | Language | Command |
+    |----------|---------|
+    | 🇪🇸 Spanish | "enciende la luz del salón" |
+    | 🇺🇸 English | "turn on the living room light" |
+    
+    ## Example with cURL
     ```bash
     curl -X POST "http://localhost:8001/voice/interpret" \\
-      -F "audio=@comando.wav"
+      -F "audio=@command.wav"
     ```
     """
 )
@@ -269,25 +278,40 @@ async def transcribe_audio(
 
 @router.post(
     "/synthesize",
-    summary="Sintetizar texto a voz (TTS)",
+    summary="Synthesize text to speech (TTS) / Sintetizar texto a voz",
     description="""
-    Convierte texto a audio MP3 usando síntesis de voz.
+    Converts text to MP3 audio using voice synthesis. **Bilingual: Spanish and English**.
     
-    ## Voces en Español
-    - `es-MX-DaliaNeural` - Dalia (México, femenina) - DEFAULT
-    - `es-MX-JorgeNeural` - Jorge (México, masculina)
-    - `es-ES-ElviraNeural` - Elvira (España, femenina)
-    - `es-ES-AlvaroNeural` - Álvaro (España, masculina)
-    - `es-AR-ElenaNeural` - Elena (Argentina, femenina)
-    - `es-AR-TomasNeural` - Tomás (Argentina, masculina)
+    ## Spanish Voices / Voces en Español
+    | Voice | Region | Gender |
+    |-------|--------|--------|
+    | `es-MX-DaliaNeural` | México | Female (DEFAULT) |
+    | `es-MX-JorgeNeural` | México | Male |
+    | `es-ES-ElviraNeural` | España | Female |
+    | `es-ES-AlvaroNeural` | España | Male |
+    | `es-AR-ElenaNeural` | Argentina | Female |
+    | `es-AR-TomasNeural` | Argentina | Male |
     
-    ## Voces en Inglés
-    - `en-US-JennyNeural` - Jenny (US, femenina)
-    - `en-US-GuyNeural` - Guy (US, masculina)
-    - `en-GB-SoniaNeural` - Sonia (UK, femenina)
-    - `en-GB-RyanNeural` - Ryan (UK, masculina)
+    ## English Voices / Voces en Inglés
+    | Voice | Region | Gender |
+    |-------|--------|--------|
+    | `en-US-JennyNeural` | US | Female |
+    | `en-US-GuyNeural` | US | Male |
+    | `en-GB-SoniaNeural` | UK | Female |
+    | `en-GB-RyanNeural` | UK | Male |
+    | `en-AU-NatashaNeural` | Australia | Female |
     
-    ## Ejemplo
+    ## Examples / Ejemplos
+    
+    **Spanish:**
+    ```bash
+    curl -X POST "http://localhost:8001/voice/synthesize" \\
+      -H "Content-Type: application/json" \\
+      -d '{"text": "Luz del salón encendida", "language": "es"}' \\
+      --output respuesta.mp3
+    ```
+    
+    **English:**
     ```bash
     curl -X POST "http://localhost:8001/voice/synthesize" \\
       -H "Content-Type: application/json" \\
@@ -334,11 +358,11 @@ async def synthesize_speech(request: TextToSpeechRequest):
 
 @router.get(
     "/voices",
-    summary="Listar voces disponibles",
-    description="Retorna las voces de síntesis disponibles (español e inglés)"
+    summary="List available voices / Listar voces disponibles",
+    description="Returns available TTS voices for Spanish and English synthesis"
 )
 async def list_voices(
-    language: str = Query("es", description="Filtrar por idioma: 'es' o 'en'")
+    language: str = Query("es", description="Filter by language: 'es' (Spanish) or 'en' (English)")
 ):
     """Lista las voces de TTS disponibles"""
     
@@ -373,8 +397,8 @@ async def list_voices(
 
 @router.get(
     "/engines",
-    summary="Listar motores disponibles",
-    description="Retorna información sobre los motores STT y TTS disponibles"
+    summary="List available engines / Listar motores disponibles",
+    description="Returns information about available STT and TTS engines for voice control"
 )
 async def list_engines():
     """Lista los motores de voz disponibles"""

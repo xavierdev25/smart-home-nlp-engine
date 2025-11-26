@@ -55,48 +55,59 @@ app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="""
-# 🏠 Microservicio NLP para Sistema Domótico Inteligente
+# 🏠 Smart Home NLP Engine - Bilingual Voice Controller
 
-Este servicio interpreta comandos de voz/texto en **español** y los convierte en acciones estructuradas para sistemas de automatización del hogar.
+Microservicio NLP que interpreta comandos de voz/texto en **Español** e **Inglés** 
+y los convierte en acciones estructuradas para sistemas de automatización del hogar.
 
-## 🚀 Características Principales
+## 🌍 Bilingual Support / Soporte Bilingüe
 
-| Característica | Descripción |
-|----------------|-------------|
-| **Pipeline Híbrido** | Reglas regex (~1ms) + LLM Ollama/Phi3 (~2-5s) como fallback |
-| **Detección de Negaciones** | Soporta 5 tipos: directa, pronombre, compuesta, prohibitiva, implícita |
-| **Multiregional** | Español de España, México, Argentina |
-| **Extensible** | Fácil agregar dispositivos y patrones |
+| Language | Commands | TTS Voices | Example |
+|----------|----------|------------|---------|
+| 🇪🇸 Español | 50+ patterns | 8 voices | "enciende la luz del salón" |
+| 🇺🇸 English | 40+ patterns | 7 voices | "turn on the living room light" |
 
-## 🎯 Intenciones Soportadas
+## 🚀 Main Features / Características Principales
 
-| Intent | Descripción | Ejemplo |
-|--------|-------------|---------|
-| `turn_on` | Encender/activar | "enciende la luz" |
-| `turn_off` | Apagar/desactivar | "apaga el ventilador" |
-| `open` | Abrir | "abre la puerta" |
-| `close` | Cerrar | "cierra la ventana" |
-| `status` | Consultar estado | "¿cómo está la luz?" |
-| `toggle` | Alternar | "cambia el estado" |
-| `unknown` | No reconocido | - |
+| Feature | Description |
+|---------|-------------|
+| **Hybrid Pipeline** | Regex rules (~1ms) + LLM Ollama/Phi3 (~2-5s) fallback |
+| **Negation Detection** | 5 types: direct, pronoun, compound, prohibitive, implicit |
+| **Bilingual NLP** | ES + EN patterns, aliases, and responses |
+| **Voice Control** | STT (Google/Whisper) + TTS (gTTS/Edge-TTS) |
+| **Extensible** | Easy to add devices, rooms, and patterns |
 
-## 📦 Dispositivos Soportados
+## 🎯 Supported Intents / Intenciones Soportadas
 
-Luces, ventiladores, puertas, ventanas, cortinas, persianas, alarmas, sensores, termostatos, cerraduras inteligentes y más.
+| Intent | Spanish | English |
+|--------|---------|---------|
+| `turn_on` | "enciende", "prende", "activa" | "turn on", "switch on", "power on" |
+| `turn_off` | "apaga", "desactiva" | "turn off", "switch off", "power off" |
+| `open` | "abre", "abrir" | "open", "unlock" |
+| `close` | "cierra", "cerrar" | "close", "shut", "lock" |
+| `status` | "estado", "cómo está" | "status", "check", "how is" |
+| `toggle` | "alterna", "cambia" | "toggle", "flip" |
 
-## 🔄 Flujo de Datos
+## 📦 Supported Devices / Dispositivos
+
+Lights, fans, doors, windows, blinds, curtains, alarms, sensors, thermostats, smart locks, and more.
+
+## 🔄 Data Flow / Flujo de Datos
 
 ```
-Texto → Normalización → Detección Negación → Intent Matching → Device Matching → Resultado JSON
+Text → Normalization → Negation Detection → Intent Matching → Device Matching → JSON Result
                                     ↓
-                              Ollama/Phi3 (si baja confianza)
+                              Ollama/Phi3 (low confidence fallback)
 ```
 
-## 📚 Documentación Adicional
+## 🔊 Voice Endpoints / Endpoints de Voz
 
-- **Documentación completa**: `/docs/NLP_MODULE.md`
-- **OpenAPI Spec extendida**: `/docs/OPENAPI_SPEC.yaml`
-- **Guía rápida**: `/docs/QUICKSTART.md`
+| Endpoint | Description |
+|----------|-------------|
+| `POST /voice/interpret` | Audio → Text → NLP → Response |
+| `POST /voice/synthesize` | Text → Audio (MP3) |
+| `GET /voice/voices` | List available TTS voices |
+| `POST /voice/stt` | Speech-to-Text only |
     """,
     lifespan=lifespan,
     docs_url="/docs",
@@ -104,24 +115,24 @@ Texto → Normalización → Detección Negación → Intent Matching → Device
     openapi_tags=[
         {
             "name": "NLP",
-            "description": "Endpoints de procesamiento de lenguaje natural para interpretar y ejecutar comandos",
+            "description": "Natural Language Processing endpoints - Bilingual ES/EN support for interpreting and executing smart home commands",
         },
         {
             "name": "Voz",
-            "description": "Control por voz: Speech-to-Text (STT) y Text-to-Speech (TTS)",
+            "description": "Voice Control: Speech-to-Text (STT) and Text-to-Speech (TTS) with 15 voices (8 ES + 7 EN)",
         },
         {
             "name": "Dispositivos",
-            "description": "Gestión de dispositivos IoT configurados",
+            "description": "IoT Device Management - Configure and query connected devices",
         },
         {
             "name": "Sistema",
-            "description": "Monitoreo y estado del servicio",
+            "description": "System Monitoring - Health checks and service status",
         }
     ],
     contact={
-        "name": "NLP Smart Home",
-        "url": "https://github.com/your-repo/nlp_ai_house",
+        "name": "Smart Home NLP Engine",
+        "url": "https://github.com/xavierdev25/smart-home-nlp-engine",
     },
     license_info={
         "name": "MIT",
@@ -213,12 +224,12 @@ async def health_check():
     response_model=InterpretationResponse,
     responses={
         200: {
-            "description": "Interpretación exitosa",
+            "description": "Successful interpretation / Interpretación exitosa",
             "content": {
                 "application/json": {
                     "examples": {
-                        "basic": {
-                            "summary": "Comando básico",
+                        "spanish_basic": {
+                            "summary": "🇪🇸 Comando básico (ES)",
                             "value": {
                                 "success": True,
                                 "data": {"intent": "turn_on", "device": "luz_comedor", "negated": False},
@@ -226,8 +237,17 @@ async def health_check():
                                 "confidence_note": None
                             }
                         },
-                        "negated": {
-                            "summary": "Comando negado",
+                        "english_basic": {
+                            "summary": "🇺🇸 Basic command (EN)",
+                            "value": {
+                                "success": True,
+                                "data": {"intent": "turn_on", "device": "luz_salon", "negated": False},
+                                "original_text": "turn on the living room light",
+                                "confidence_note": None
+                            }
+                        },
+                        "spanish_negated": {
+                            "summary": "🇪🇸 Comando negado (ES)",
                             "value": {
                                 "success": True,
                                 "data": {"intent": "turn_on", "device": "luz_comedor", "negated": True},
@@ -235,8 +255,17 @@ async def health_check():
                                 "confidence_note": None
                             }
                         },
+                        "english_negated": {
+                            "summary": "🇺🇸 Negated command (EN)",
+                            "value": {
+                                "success": True,
+                                "data": {"intent": "turn_on", "device": "luz_salon", "negated": True},
+                                "original_text": "don't turn on the light",
+                                "confidence_note": None
+                            }
+                        },
                         "unknown": {
-                            "summary": "Comando no reconocido",
+                            "summary": "❓ Unrecognized / No reconocido",
                             "value": {
                                 "success": True,
                                 "data": {"intent": "unknown", "device": None, "negated": False},
@@ -248,42 +277,50 @@ async def health_check():
                 }
             }
         },
-        422: {"description": "Error de validación en la entrada"},
-        500: {"description": "Error interno del servidor", "model": ErrorResponse}
+        422: {"description": "Validation error / Error de validación"},
+        500: {"description": "Internal server error / Error interno", "model": ErrorResponse}
     },
     tags=["NLP"],
-    summary="Interpretar comando de lenguaje natural"
+    summary="Interpret natural language command / Interpretar comando"
 )
 async def interpret_command(command: CommandInput):
     """
-    ## 🧠 Interpreta un comando en lenguaje natural
+    ## 🧠 Interpret Natural Language Command / Interpretar Comando
     
-    Procesa texto en español y extrae **intent**, **device** y **negation**.
+    Processes text in **Spanish** or **English** and extracts **intent**, **device**, and **negation**.
     
-    ### Pipeline de Procesamiento
+    ### Processing Pipeline
     
-    1. **Normalización** → minúsculas, sin acentos, sin puntuación
-    2. **Detección de Negación** → busca "no", "nunca", "deja de", etc.
-    3. **Intent Matching** → 50+ patrones regex
-    4. **Device Matching** → índice invertido O(1)
-    5. **Validación** → si confianza < 0.8, usa Ollama/Phi3
+    1. **Normalization** → lowercase, no accents, no punctuation
+    2. **Negation Detection** → "no", "don't", "never", "deja de", etc.
+    3. **Intent Matching** → 90+ regex patterns (ES + EN)
+    4. **Device Matching** → inverted index O(1)
+    5. **Validation** → if confidence < 0.8, uses Ollama/Phi3
     
-    ### Tipos de Negaciones Detectadas
+    ### Detected Negation Types / Tipos de Negaciones
     
-    | Tipo | Ejemplo |
-    |------|---------|
-    | Directa | "**no** enciendas la luz" |
-    | Pronombre | "**no la** enciendas" |
-    | Compuesta | "no quiero que **se encienda**" |
-    | Prohibitiva | "**deja de** encender" |
-    | Implícita | "**mejor no**" |
+    | Type | Spanish | English |
+    |------|---------|---------|
+    | Direct | "**no** enciendas" | "**don't** turn on" |
+    | Never | "**nunca** enciendas" | "**never** turn on" |
+    | Stop | "**deja de** encender" | "**stop** turning on" |
+    | Prohibitive | "**no quiero que**" | "**do not** turn on" |
+    | Implicit | "**mejor no**" | "**please don't**" |
     
-    ### Ejemplo
+    ### Examples / Ejemplos
     
+    **Spanish:**
     ```bash
     curl -X POST "http://localhost:8001/interpret" \\
       -H "Content-Type: application/json" \\
       -d '{"text": "enciende la luz del comedor"}'
+    ```
+    
+    **English:**
+    ```bash
+    curl -X POST "http://localhost:8001/interpret" \\
+      -H "Content-Type: application/json" \\
+      -d '{"text": "turn on the living room light"}'
     ```
     """
     try:
