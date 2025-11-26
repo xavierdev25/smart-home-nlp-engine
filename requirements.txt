@@ -17,6 +17,28 @@ sqlalchemy==2.0.25
 # Utilidades
 python-dotenv==1.0.0
 
+# ============================================
+# Control por Voz (STT/TTS)
+# ============================================
+
+# Speech Recognition (STT) - REQUERIDO para voz
+SpeechRecognition==3.10.1
+PyAudio==0.2.14          # Captura de micrófono
+
+# Text to Speech (TTS) - Elegir uno o más:
+edge-tts==6.1.9          # Microsoft Edge TTS (RECOMENDADO - alta calidad, gratis)
+gTTS==2.5.1              # Google TTS (online, gratis)
+pyttsx3==2.90            # Offline, multiplataforma
+
+# Reproducción de audio
+pygame==2.5.2            # Para reproducir audio TTS
+
+# Opcional: Reconocimiento offline
+# openai-whisper==20231117  # OpenAI Whisper (requiere ~1GB RAM mínimo)
+# vosk==0.3.45              # Vosk (ligero, offline)
+
+# ============================================
 # Desarrollo y testing (opcional)
+# ============================================
 pytest==7.4.4
 pytest-asyncio==0.23.3

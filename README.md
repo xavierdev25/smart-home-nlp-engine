@@ -1,136 +1,137 @@
-# NLP Service - Sistema Domótico Inteligente
+# 🏠 Smart Home NLP Engine
 
-Microservicio de Procesamiento de Lenguaje Natural (NLP) para interpretación de comandos de voz/texto en un sistema domótico.
+Microservicio de Procesamiento de Lenguaje Natural (NLP) con control por voz para sistemas domóticos inteligentes.
 
 ## 📋 Descripción
 
-Este microservicio recibe comandos en lenguaje natural (español) y devuelve la intención del usuario junto con el dispositivo identificado. Incluye detección de negaciones y un endpoint opcional para ejecutar acciones.
+Este microservicio recibe comandos en lenguaje natural (español) y devuelve la intención del usuario junto con el dispositivo identificado. Incluye:
 
-## ✨ Características Principales
+- **NLP Pipeline**: Interpretación de comandos con reglas + LLM fallback
+- **Control por Voz**: Speech-to-Text (STT) y Text-to-Speech (TTS)
+- **Detección de Negaciones**: Reconoce comandos negados
+- **API REST**: Endpoints para integración con cualquier sistema
 
-- **Pipeline Híbrido**: Sistema de reglas (~1ms) + Ollama/Phi3 (~2-5s) como fallback
-- **Detección de Negaciones**: Reconoce comandos negados ("no enciendas", "no abras")
-- **Módulo NLP Modular**: Reglas separadas en archivos dedicados
-- **Soporte Regional**: Variaciones del español (España, México, Argentina)
-- **Aliases Extensos**: +200 sinónimos para dispositivos y habitaciones
-- **Endpoint /execute**: Ejecución opcional de comandos en backend IoT
+---
 
-## 📚 Documentación
+## ✨ Características
 
-| Documento                                               | Descripción                                   |
-| ------------------------------------------------------- | --------------------------------------------- |
-| 📖 [Documentación NLP Completa](docs/NLP_MODULE.md)     | Arquitectura, componentes, pipeline, ejemplos |
-| 🔧 [Especificación OpenAPI 3.0](docs/OPENAPI_SPEC.yaml) | Swagger/OpenAPI extendido                     |
-| 🚀 [Guía Rápida](docs/QUICKSTART.md)                    | Inicio rápido con ejemplos                    |
-| 📦 [README del Módulo NLP](nlp/README.md)               | Uso directo del módulo                        |
+| Característica         | Descripción                                                    |
+| ---------------------- | -------------------------------------------------------------- |
+| **Pipeline Híbrido**   | Reglas regex (~2ms) + Ollama/Phi3 (~2-5s) como fallback        |
+| **🎤 Control por Voz** | STT (Google) + TTS (gTTS) integrados                           |
+| **Negaciones**         | 5 tipos: directa, pronombre, compuesta, prohibitiva, implícita |
+| **Multiregional**      | Español de España, México, Argentina                           |
+| **+200 Aliases**       | Sinónimos para dispositivos y habitaciones                     |
+| **API Documentada**    | Swagger UI + ReDoc + OpenAPI 3.0                               |
 
-### Documentación Interactiva
+---
 
-- **Swagger UI**: http://localhost:8001/docs
-- **ReDoc**: http://localhost:8001/redoc
-- **OpenAPI JSON**: http://localhost:8001/openapi.json
-
-## 🏗️ Estructura del Proyecto
-
-```
-nlp_ai_house/
-├── config/
-│   ├── __init__.py
-│   └── settings.py              # Configuración del servicio
-├── data/
-│   └── devices.json             # Mapeo de dispositivos
-├── database/
-│   ├── __init__.py
-│   └── connection.py            # Conexión SQLAlchemy
-├── docs/                        # 📚 DOCUMENTACIÓN
-│   ├── NLP_MODULE.md            # Documentación completa
-│   ├── OPENAPI_SPEC.yaml        # Especificación OpenAPI 3.0
-│   └── QUICKSTART.md            # Guía rápida
-├── models/
-│   ├── __init__.py
-│   ├── schemas.py               # Esquemas Pydantic API
-│   ├── database.py              # Modelos SQLAlchemy
-│   └── device_schemas.py        # Esquemas CRUD dispositivos
-├── nlp/                         # ⭐ MÓDULO NLP SEPARADO
-│   ├── __init__.py              # Exportaciones del módulo
-│   ├── README.md                # Documentación del módulo
-│   ├── constants.py             # Enums y constantes
-│   ├── intents.py               # Patrones de intención
-│   ├── aliases.py               # Sinónimos dispositivos/habitaciones
-│   ├── negations.py             # Detección de negaciones
-│   ├── normalizer.py            # Normalización de texto
-│   └── matchers.py              # Motores de coincidencia
-├── routers/
-│   ├── __init__.py
-│   └── devices.py               # API REST de dispositivos
-├── services/
-│   ├── __init__.py
-│   ├── nlp_pipeline.py          # Pipeline principal NLP
-│   └── device_service.py        # Servicio de dispositivos
-├── main.py                      # Servidor FastAPI
-├── requirements.txt             # Dependencias
-└── README.md
-```
-
-## 🚀 Instalación y Configuración
-
-### Prerrequisitos
-
-1. **Python 3.10+**
-2. **Ollama** instalado (opcional pero recomendado)
-3. **Modelo Phi3** descargado en Ollama
-
-### Instalación Rápida
+## 🚀 Instalación Rápida
 
 ```bash
-# Clonar o descargar el proyecto
-cd nlp_ai_house
+# Clonar repositorio
+git clone https://github.com/xavierdev25/smart-home-nlp-engine.git
+cd smart-home-nlp-engine
 
-# Crear entorno virtual
+# Crear y activar entorno virtual
 python -m venv venv
-
-# Activar entorno (Windows PowerShell)
-.\venv\Scripts\Activate.ps1
+.\venv\Scripts\Activate.ps1  # Windows PowerShell
+# source venv/bin/activate   # Linux/Mac
 
 # Instalar dependencias
 pip install -r requirements.txt
 
-# Ejecutar
+# Ejecutar servidor
 python main.py
 ```
 
-El servicio estará disponible en: `http://localhost:8001`
+**Servidor disponible en:** http://localhost:8001
 
-### Configurar Ollama (Opcional)
+### Dependencias de Voz (Opcional)
+
+```bash
+pip install SpeechRecognition PyAudio gTTS pygame
+
+# Windows - si PyAudio falla:
+pip install pipwin && pipwin install pyaudio
+```
+
+### Ollama (Opcional - LLM Fallback)
 
 ```bash
 # Instalar Ollama
 winget install Ollama.Ollama
 
-# Descargar modelo Phi3 (2.2GB)
+# Descargar modelo
 ollama pull phi3
-
-# Verificar
-ollama list
 ```
 
-## 🔌 Endpoints
+---
+
+## 🏗️ Estructura del Proyecto
+
+```
+smart-home-nlp-engine/
+├── main.py                  # 🚀 Servidor FastAPI
+├── requirements.txt         # Dependencias
+├── config/
+│   └── settings.py          # Configuración
+├── data/
+│   └── devices.json         # Dispositivos configurados
+├── database/
+│   └── connection.py        # SQLAlchemy
+├── models/
+│   ├── schemas.py           # Pydantic API
+│   ├── database.py          # Modelos DB
+│   └── device_schemas.py    # CRUD schemas
+├── nlp/                     # ⭐ Módulo NLP
+│   ├── constants.py         # Enums (IntentType, DeviceType)
+│   ├── intents.py           # 50+ patrones regex
+│   ├── aliases.py           # +200 sinónimos
+│   ├── negations.py         # Detector de negaciones
+│   ├── normalizer.py        # Normalización texto
+│   └── matchers.py          # IntentMatcher, DeviceMatcher
+├── voice/                   # 🎤 Módulo de Voz
+│   ├── speech_to_text.py    # STT (Google, Whisper, Vosk)
+│   ├── text_to_speech.py    # TTS (gTTS, Edge, pyttsx3)
+│   └── voice_assistant.py   # Asistente integrado
+├── routers/
+│   ├── devices.py           # API dispositivos
+│   └── voice.py             # API voz
+├── services/
+│   ├── nlp_pipeline.py      # Pipeline principal
+│   └── device_service.py    # Servicio dispositivos
+├── examples/
+│   ├── integration_example.py
+│   └── voice_demo.py        # Demo control por voz
+└── docs/
+    └── OPENAPI_SPEC.yaml    # Especificación OpenAPI 3.0
+```
+
+---
+
+## 🔌 API Endpoints
+
+### Documentación Interactiva
+
+| URL                                | Descripción  |
+| ---------------------------------- | ------------ |
+| http://localhost:8001/docs         | Swagger UI   |
+| http://localhost:8001/redoc        | ReDoc        |
+| http://localhost:8001/openapi.json | OpenAPI JSON |
 
 ### Health Check
 
-```http
-GET /health
+```bash
+curl http://localhost:8001/health
 ```
 
 ### Interpretar Comando (Principal)
 
-```http
-POST /interpret
-Content-Type: application/json
-
-{
-  "text": "enciende la luz del comedor"
-}
+```bash
+curl -X POST "http://localhost:8001/interpret" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "enciende la luz del comedor"}'
 ```
 
 **Respuesta:**
@@ -143,20 +144,16 @@ Content-Type: application/json
     "device": "luz_comedor",
     "negated": false
   },
-  "original_text": "enciende la luz del comedor",
-  "confidence_note": null
+  "original_text": "enciende la luz del comedor"
 }
 ```
 
-### Interpretar con Negación
+### Comando con Negación
 
-```http
-POST /interpret
-Content-Type: application/json
-
-{
-  "text": "no enciendas la luz"
-}
+```bash
+curl -X POST "http://localhost:8001/interpret" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "no enciendas la luz"}'
 ```
 
 **Respuesta:**
@@ -168,21 +165,46 @@ Content-Type: application/json
     "intent": "turn_on",
     "device": "luz_sala",
     "negated": true
-  },
-  "original_text": "no enciendas la luz",
-  "confidence_note": null
+  }
 }
 ```
 
-### Ejecutar Comando (Opcional)
+### Ejecutar Comando
 
-```http
-POST /execute
-Content-Type: application/json
+```bash
+curl -X POST "http://localhost:8001/execute" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "apaga el ventilador"}'
+```
 
-{
-  "text": "enciende la luz del comedor"
-}
+### Dispositivos
+
+```bash
+GET  /devices              # Listar todos
+GET  /devices/{device_key} # Obtener uno
+POST /devices/reload       # Recargar configuración
+```
+
+---
+
+## 🎤 Control por Voz
+
+### API de Voz
+
+| Endpoint                      | Método | Descripción                |
+| ----------------------------- | ------ | -------------------------- |
+| `/voice/interpret`            | POST   | Audio WAV → JSON resultado |
+| `/voice/interpret-with-audio` | POST   | Audio WAV → MP3 respuesta  |
+| `/voice/synthesize`           | POST   | Texto → MP3                |
+| `/voice/transcribe`           | POST   | Audio WAV → Texto          |
+| `/voice/voices`               | GET    | Listar voces disponibles   |
+| `/voice/status`               | GET    | Estado del módulo          |
+
+### Interpretar Audio
+
+```bash
+curl -X POST "http://localhost:8001/voice/interpret" \
+  -F "audio=@comando.wav"
 ```
 
 **Respuesta:**
@@ -190,132 +212,186 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "interpretation": {
-    "intent": "turn_on",
-    "device": "luz_comedor",
-    "negated": false
-  },
-  "execution": {
-    "executed": true,
-    "endpoint_called": "http://iot-backend/api/devices/luz_comedor/on",
-    "status_code": 200
-  },
-  "original_text": "enciende la luz del comedor"
+  "original_text": "enciende la luz",
+  "intent": "turn_on",
+  "device": "luz_sala",
+  "negated": false,
+  "response_text": "Listo, luz sala encendido"
 }
 ```
 
-### Listar Dispositivos
+### Sintetizar Texto a Voz
 
-```http
-GET /devices
-GET /devices/{device_key}
-POST /devices/reload
+```bash
+curl -X POST "http://localhost:8001/voice/synthesize" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Luz encendida"}' \
+  --output respuesta.mp3
 ```
+
+### Demo Interactivo
+
+```bash
+# Control por voz completo
+python examples/voice_demo.py
+
+# Solo probar TTS
+python examples/voice_demo.py --mode test_tts
+
+# Solo probar STT
+python examples/voice_demo.py --mode test_stt
+```
+
+### Motores Disponibles
+
+**STT (Speech-to-Text):**
+| Motor | Tipo | Calidad |
+|-------|------|---------|
+| `google` | Online | ⭐⭐⭐⭐ (DEFAULT) |
+| `whisper` | Offline | ⭐⭐⭐⭐⭐ |
+| `vosk` | Offline | ⭐⭐⭐ |
+
+**TTS (Text-to-Speech):**
+| Motor | Tipo | Calidad |
+|-------|------|---------|
+| `gtts` | Online | ⭐⭐⭐⭐ (DEFAULT) |
+| `edge_tts` | Online | ⭐⭐⭐⭐⭐ |
+| `pyttsx3` | Offline | ⭐⭐ |
+
+---
 
 ## 🎯 Intenciones Soportadas
 
-| Intent     | Descripción       | Palabras clave                             |
-| ---------- | ----------------- | ------------------------------------------ |
-| `turn_on`  | Encender/activar  | enciende, prende, activa, ilumina, conecta |
-| `turn_off` | Apagar/desactivar | apaga, desactiva, desconecta, corta        |
-| `open`     | Abrir             | abre, levanta, sube, descorre              |
-| `close`    | Cerrar            | cierra, baja, corre, bloquea               |
-| `status`   | Consultar estado  | estado, cómo está, revisar, verificar      |
-| `toggle`   | Alternar          | alterna, cambia, invierte                  |
-| `unknown`  | No reconocido     | -                                          |
+| Intent     | Descripción   | Ejemplos                          |
+| ---------- | ------------- | --------------------------------- |
+| `turn_on`  | Encender      | enciende, prende, activa, ilumina |
+| `turn_off` | Apagar        | apaga, desactiva, desconecta      |
+| `open`     | Abrir         | abre, levanta, sube, descorre     |
+| `close`    | Cerrar        | cierra, baja, corre, bloquea      |
+| `status`   | Estado        | ¿cómo está?, revisa, verifica     |
+| `toggle`   | Alternar      | alterna, cambia, invierte         |
+| `unknown`  | No reconocido | -                                 |
+
+---
 
 ## 🚫 Detección de Negaciones
 
-El sistema detecta múltiples formas de negación en español:
+| Tipo            | Ejemplo                 | Resultado       |
+| --------------- | ----------------------- | --------------- |
+| **Directa**     | "no enciendas la luz"   | `negated: true` |
+| **Pronombre**   | "no la enciendas"       | `negated: true` |
+| **Compuesta**   | "no quiero que se abra" | `negated: true` |
+| **Prohibitiva** | "deja de encender"      | `negated: true` |
+| **Implícita**   | "mejor no abras"        | `negated: true` |
 
-| Tipo              | Ejemplo                 | Resultado     |
-| ----------------- | ----------------------- | ------------- |
-| **Directa**       | "no enciendas la luz"   | negated: true |
-| **Con pronombre** | "no la enciendas"       | negated: true |
-| **Compuesta**     | "no quiero que se abra" | negated: true |
-| **Prohibitiva**   | "deja de encender"      | negated: true |
-| **Implícita**     | "mejor no abras"        | negated: true |
+Cuando `negated: true`, el endpoint `/execute` **NO ejecuta** la acción.
 
-### Respuesta para Comandos Negados
+---
 
-Cuando `negated: true`, el endpoint `/execute` NO ejecuta la acción:
-
-```json
-{
-  "execution": {
-    "executed": false,
-    "reason": "Comando negado - no se ejecuta la acción",
-    "message": "Entendido, NO se ejecutará turn_on en luz_sala"
-  }
-}
-```
-
-## 📦 Módulo NLP
-
-### Estructura Modular
-
-El módulo `nlp/` contiene todas las reglas separadas:
+## 📦 Uso del Módulo NLP
 
 ```python
-from nlp import (
-    # Constantes
-    NLPConstants, IntentType, DeviceType,
-    # Patrones
-    IntentDefinitions, ContextPatterns,
-    # Aliases
-    DeviceAliases, RoomAliases, ActionAliases,
-    # Negaciones
-    NegationDetector, NegationResult,
-    # Normalización
-    TextNormalizer, SpanishTextPreprocessor,
-    # Matchers
-    IntentMatcher, DeviceMatcher, EntityExtractor,
-)
-```
-
-### Uso Independiente
-
-```python
-from nlp import IntentMatcher, NegationDetector
+from nlp import IntentMatcher, DeviceMatcher, NegationDetector
 
 # Detectar intención
 matcher = IntentMatcher()
 result = matcher.match("enciende la luz")
-print(result.intent)  # "turn_on"
+print(result.intent)      # "turn_on"
 print(result.confidence)  # 0.85
+
+# Detectar dispositivo
+devices = {"luz_sala": {...}, "ventilador": {...}}
+device_matcher = DeviceMatcher(devices)
+device = device_matcher.match("prende la luz de la sala")
+print(device)  # "luz_sala"
 
 # Detectar negación
 detector = NegationDetector()
-negation = detector.detect("no enciendas la luz")
-print(negation.is_negated)  # True
-print(negation.negation_type)  # "direct"
+neg = detector.detect("no enciendas la luz")
+print(neg.is_negated)      # True
+print(neg.negation_type)   # "direct"
 ```
+
+---
+
+## 🔧 Configuración
+
+### Variables de Entorno (.env)
+
+```env
+APP_NAME=NLP Service - Smart Home
+DEBUG=True
+PORT=8001
+HOST=0.0.0.0
+
+# Ollama (opcional)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=phi3
+
+# Base de datos
+DATABASE_URL=sqlite:///./nlp_smart_home.db
+
+# Backend IoT (para /execute)
+IOT_BACKEND_URL=http://iot-backend:8000
+```
+
+---
+
+## 📊 Arquitectura
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    CLIENTE                                   │
+│            (Voz / Texto / App / API)                        │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              NLP SERVICE (FastAPI :8001)                     │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                   VOICE MODULE                          │ │
+│  │   ┌─────────┐              ┌─────────┐                 │ │
+│  │   │   STT   │──── text ───▶│   TTS   │                 │ │
+│  │   │ (Google)│              │ (gTTS)  │                 │ │
+│  │   └─────────┘              └─────────┘                 │ │
+│  └──────────┬─────────────────────────────────────────────┘ │
+│             │                                                │
+│  ┌──────────▼─────────────────────────────────────────────┐ │
+│  │                   NLP PIPELINE                          │ │
+│  │                                                         │ │
+│  │  ┌──────────┐   ┌──────────┐   ┌──────────┐           │ │
+│  │  │Normalize │──▶│ Negation │──▶│  Intent  │           │ │
+│  │  │  Text    │   │ Detector │   │ Matcher  │           │ │
+│  │  └──────────┘   └──────────┘   └────┬─────┘           │ │
+│  │                                      │                  │ │
+│  │                               ┌──────▼─────┐           │ │
+│  │                               │  Device    │           │ │
+│  │                               │  Matcher   │           │ │
+│  │                               └──────┬─────┘           │ │
+│  │                                      │                  │ │
+│  │         ┌────────────────────────────▼───────────┐     │ │
+│  │         │  Si confianza < 0.8 → Ollama/Phi3      │     │ │
+│  │         └────────────────────────────────────────┘     │ │
+│  └─────────────────────────────────────────────────────────┘ │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+              ┌─────────────────┐
+              │    RESPUESTA    │
+              │ {intent, device,│
+              │  negated}       │
+              └─────────────────┘
+```
+
+---
 
 ## 🧪 Ejemplos de Uso
 
-### Desde curl
-
-```bash
-# Encender luz
-curl -X POST "http://localhost:8001/interpret" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "enciende la luz del comedor"}'
-
-# Comando negado
-curl -X POST "http://localhost:8001/interpret" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "no enciendas la luz"}'
-
-# Ejecutar comando
-curl -X POST "http://localhost:8001/execute" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "apaga el ventilador de la sala"}'
-```
-
-### Desde Python
+### Python (httpx)
 
 ```python
 import httpx
+import asyncio
 
 async def interpret(text: str):
     async with httpx.AsyncClient() as client:
@@ -326,63 +402,52 @@ async def interpret(text: str):
         return response.json()
 
 # Uso
-result = await interpret("enciende la luz del comedor")
-if result["success"]:
-    intent = result["data"]["intent"]
-    device = result["data"]["device"]
-    negated = result["data"]["negated"]
-
-    if not negated and intent != "unknown" and device:
-        # Ejecutar acción
-        print(f"Ejecutar: {intent} en {device}")
+result = asyncio.run(interpret("enciende la luz del comedor"))
+print(result)
 ```
 
-## 🔧 Configuración
+### JavaScript (fetch)
 
-### Variables de Entorno
-
-| Variable          | Descripción         | Valor por defecto                |
-| ----------------- | ------------------- | -------------------------------- |
-| `APP_NAME`        | Nombre del servicio | NLP Service - Smart Home         |
-| `DEBUG`           | Modo debug          | True                             |
-| `PORT`            | Puerto del servidor | 8001                             |
-| `OLLAMA_BASE_URL` | URL de Ollama       | http://localhost:11434           |
-| `OLLAMA_MODEL`    | Modelo a usar       | phi3                             |
-| `DATABASE_URL`    | URL base de datos   | sqlite:///./nlp_service.db       |
-| `IOT_BACKEND_URL` | URL backend IoT     | (vacío = /execute deshabilitado) |
-
-## 📊 Arquitectura
-
+```javascript
+const response = await fetch("http://localhost:8001/interpret", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ text: "enciende la luz" }),
+});
+const data = await response.json();
+console.log(data);
 ```
-┌──────────────────────────────────────────────────────────┐
-│                     CLIENTE                               │
-│              (Voz/Texto/App)                             │
-└─────────────────────┬────────────────────────────────────┘
-                      │
-                      ▼
-┌──────────────────────────────────────────────────────────┐
-│                NLP SERVICE (FastAPI)                      │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │                NLP PIPELINE                          │ │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐              │ │
-│  │  │Negation │→ │ Intent  │→ │ Device  │              │ │
-│  │  │Detector │  │ Matcher │  │ Matcher │              │ │
-│  │  └─────────┘  └─────────┘  └─────────┘              │ │
-│  │       ↓            ↓            ↓                    │ │
-│  │  ┌─────────────────────────────────────┐            │ │
-│  │  │  Si confianza < 0.8 → Ollama/Phi3   │            │ │
-│  │  └─────────────────────────────────────┘            │ │
-│  └─────────────────────────────────────────────────────┘ │
-└─────────────────────┬────────────────────────────────────┘
-                      │
-                      ▼
-            ┌─────────────────┐
-            │   RESPUESTA     │
-            │ {intent, device,│
-            │  negated}       │
-            └─────────────────┘
+
+### cURL
+
+```bash
+# Interpretar
+curl -X POST http://localhost:8001/interpret \
+  -H "Content-Type: application/json" \
+  -d '{"text": "apaga el ventilador"}'
+
+# Ejecutar
+curl -X POST http://localhost:8001/execute \
+  -H "Content-Type: application/json" \
+  -d '{"text": "abre la puerta del garage"}'
+
+# Voz a texto
+curl -X POST http://localhost:8001/voice/interpret \
+  -F "audio=@mi_comando.wav"
 ```
+
+---
 
 ## 📝 Licencia
 
-Proyecto personal - Sistema domótico inteligente.
+MIT License - Proyecto de código abierto para sistemas domóticos inteligentes.
+
+---
+
+## 🤝 Contribuciones
+
+¡Las contribuciones son bienvenidas! Por favor, abre un issue o pull request.
+
+---
+
+**Desarrollado con ❤️ para la comunidad de domótica**

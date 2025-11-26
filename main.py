@@ -107,6 +107,10 @@ Texto → Normalización → Detección Negación → Intent Matching → Device
             "description": "Endpoints de procesamiento de lenguaje natural para interpretar y ejecutar comandos",
         },
         {
+            "name": "Voz",
+            "description": "Control por voz: Speech-to-Text (STT) y Text-to-Speech (TTS)",
+        },
+        {
             "name": "Dispositivos",
             "description": "Gestión de dispositivos IoT configurados",
         },
@@ -136,7 +140,9 @@ app.add_middleware(
 
 # Incluir routers
 from routers.devices import router as devices_router
+from routers.voice import router as voice_router
 app.include_router(devices_router)
+app.include_router(voice_router)
 
 
 @app.get(
