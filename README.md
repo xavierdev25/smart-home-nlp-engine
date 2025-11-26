@@ -4,11 +4,12 @@ Microservicio de Procesamiento de Lenguaje Natural (NLP) con control por voz par
 
 ## 📋 Descripción
 
-Este microservicio recibe comandos en lenguaje natural (español) y devuelve la intención del usuario junto con el dispositivo identificado. Incluye:
+Este microservicio recibe comandos en lenguaje natural (**español e inglés**) y devuelve la intención del usuario junto con el dispositivo identificado. Incluye:
 
 - **NLP Pipeline**: Interpretación de comandos con reglas + LLM fallback
 - **Control por Voz**: Speech-to-Text (STT) y Text-to-Speech (TTS)
 - **Detección de Negaciones**: Reconoce comandos negados
+- **Bilingüe**: Soporte completo para español e inglés
 - **API REST**: Endpoints para integración con cualquier sistema
 
 ---
@@ -19,8 +20,9 @@ Este microservicio recibe comandos en lenguaje natural (español) y devuelve la 
 | ---------------------- | -------------------------------------------------------------- |
 | **Pipeline Híbrido**   | Reglas regex (~2ms) + Ollama/Phi3 (~2-5s) como fallback        |
 | **🎤 Control por Voz** | STT (Google) + TTS (gTTS) integrados                           |
+| **🌐 Bilingüe**        | Español e Inglés (comandos, respuestas, TTS)                   |
 | **Negaciones**         | 5 tipos: directa, pronombre, compuesta, prohibitiva, implícita |
-| **Multiregional**      | Español de España, México, Argentina                           |
+| **Multiregional**      | ES: España, México, Argentina / EN: US, UK                     |
 | **+200 Aliases**       | Sinónimos para dispositivos y habitaciones                     |
 | **API Documentada**    | Swagger UI + ReDoc + OpenAPI 3.0                               |
 
@@ -223,10 +225,17 @@ curl -X POST "http://localhost:8001/voice/interpret" \
 ### Sintetizar Texto a Voz
 
 ```bash
+# Español (default)
 curl -X POST "http://localhost:8001/voice/synthesize" \
   -H "Content-Type: application/json" \
-  -d '{"text": "Luz encendida"}' \
+  -d '{"text": "Luz encendida", "language": "es"}' \
   --output respuesta.mp3
+
+# Inglés
+curl -X POST "http://localhost:8001/voice/synthesize" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Light turned on", "language": "en"}' \
+  --output response.mp3
 ```
 
 ### Demo Interactivo
@@ -262,27 +271,27 @@ python examples/voice_demo.py --mode test_stt
 
 ## 🎯 Intenciones Soportadas
 
-| Intent     | Descripción   | Ejemplos                          |
-| ---------- | ------------- | --------------------------------- |
-| `turn_on`  | Encender      | enciende, prende, activa, ilumina |
-| `turn_off` | Apagar        | apaga, desactiva, desconecta      |
-| `open`     | Abrir         | abre, levanta, sube, descorre     |
-| `close`    | Cerrar        | cierra, baja, corre, bloquea      |
-| `status`   | Estado        | ¿cómo está?, revisa, verifica     |
-| `toggle`   | Alternar      | alterna, cambia, invierte         |
-| `unknown`  | No reconocido | -                                 |
+| Intent     | Descripción   | Español                           | English                       |
+| ---------- | ------------- | --------------------------------- | ----------------------------- |
+| `turn_on`  | Encender      | enciende, prende, activa, ilumina | turn on, switch on, enable    |
+| `turn_off` | Apagar        | apaga, desactiva, desconecta      | turn off, switch off, disable |
+| `open`     | Abrir         | abre, levanta, sube, descorre     | open, unlock, raise           |
+| `close`    | Cerrar        | cierra, baja, corre, bloquea      | close, shut, lock, lower      |
+| `status`   | Estado        | ¿cómo está?, revisa, verifica     | status, check, how is         |
+| `toggle`   | Alternar      | alterna, cambia, invierte         | toggle, switch, flip          |
+| `unknown`  | No reconocido | -                                 | -                             |
 
 ---
 
 ## 🚫 Detección de Negaciones
 
-| Tipo            | Ejemplo                 | Resultado       |
-| --------------- | ----------------------- | --------------- |
-| **Directa**     | "no enciendas la luz"   | `negated: true` |
-| **Pronombre**   | "no la enciendas"       | `negated: true` |
-| **Compuesta**   | "no quiero que se abra" | `negated: true` |
-| **Prohibitiva** | "deja de encender"      | `negated: true` |
-| **Implícita**   | "mejor no abras"        | `negated: true` |
+| Tipo            | Español                 | English                   | Resultado       |
+| --------------- | ----------------------- | ------------------------- | --------------- |
+| **Directa**     | "no enciendas la luz"   | "don't turn on the light" | `negated: true` |
+| **Pronombre**   | "no la enciendas"       | -                         | `negated: true` |
+| **Compuesta**   | "no quiero que se abra" | "I don't want to open"    | `negated: true` |
+| **Prohibitiva** | "deja de encender"      | "stop turning on"         | `negated: true` |
+| **Implícita**   | "mejor no abras"        | "never open"              | `negated: true` |
 
 Cuando `negated: true`, el endpoint `/execute` **NO ejecuta** la acción.
 
@@ -293,11 +302,15 @@ Cuando `negated: true`, el endpoint `/execute` **NO ejecuta** la acción.
 ```python
 from nlp import IntentMatcher, DeviceMatcher, NegationDetector
 
-# Detectar intención
+# Detectar intención (Spanish)
 matcher = IntentMatcher()
 result = matcher.match("enciende la luz")
 print(result.intent)      # "turn_on"
 print(result.confidence)  # 0.85
+
+# Detectar intención (English)
+result_en = matcher.match("turn on the light")
+print(result_en.intent)   # "turn_on"
 
 # Detectar dispositivo
 devices = {"luz_sala": {...}, "ventilador": {...}}
@@ -305,11 +318,12 @@ device_matcher = DeviceMatcher(devices)
 device = device_matcher.match("prende la luz de la sala")
 print(device)  # "luz_sala"
 
-# Detectar negación
+# Detectar negación (Spanish & English)
 detector = NegationDetector()
-neg = detector.detect("no enciendas la luz")
-print(neg.is_negated)      # True
-print(neg.negation_type)   # "direct"
+neg_es = detector.detect("no enciendas la luz")
+print(neg_es.is_negated)      # True
+neg_en = detector.detect("don't turn on the light")
+print(neg_en.is_negated)      # True
 ```
 
 ---

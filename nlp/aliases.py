@@ -1,9 +1,9 @@
 """
-Sistema de Alias y Sinónimos
-============================
+Sistema de Alias y Sinónimos - Bilingüe ES/EN
+=============================================
 
 Define todos los alias y sinónimos para dispositivos, habitaciones y acciones
-en español. Incluye variaciones regionales y coloquiales.
+en español e inglés. Incluye variaciones regionales y coloquiales.
 """
 from typing import Dict, List, Set
 from dataclasses import dataclass, field
@@ -33,8 +33,10 @@ class DeviceAliases:
             "lámpara", "lampara", "foco", "bombilla", "bombillo",
             "iluminación", "iluminacion", "luminaria", "candela",
             "foquito", "lamparita", "lucecita", "lucesita",
-            "light", "lamp", "bulb",                    # Anglicismos
             "velador",                                   # Lámpara de mesa (Arg)
+            # English
+            "light", "lamp", "bulb", "lighting",
+            "ceiling light", "floor lamp", "table lamp",
         ],
         "led": ["tira led", "tira de led", "leds", "tiras led", "led strip"],
         "spot": ["spotlight", "dicroico", "dicroica", "ojo de buey"],
@@ -50,6 +52,9 @@ class DeviceAliases:
             "aire", "venti", "turbina",
             "enfriador", "cooler",                       # Coloquiales
             "aspas",                                      # Por las aspas
+            # English
+            "ceiling fan", "floor fan", "desk fan",
+            "blower", "air circulator",
         ],
         "extractor": [
             "extractor de aire", "extractora", "ventilador extractor",
@@ -66,13 +71,16 @@ class DeviceAliases:
     DOORS: Dict[str, List[str]] = {
         "puerta": [
             "portón", "porton", "portal", "entrada",
-            "door", "gate",
             "acceso", "paso",
+            # English
+            "door", "gate", "entrance", "entry",
         ],
         "garage": [
             "garaje", "cochera", "parking", "estacionamiento",
             "puerta del garage", "puerta del garaje",
             "portón del garage", "porton del garaje",
+            # English
+            "garage door", "carport",
         ],
         "puerta_principal": [
             "puerta principal", "puerta de entrada", "entrada principal",
@@ -89,14 +97,19 @@ class DeviceAliases:
     # ==========================================================================
     WINDOWS: Dict[str, List[str]] = {
         "ventana": [
-            "ventanal", "window", "cristal",
+            "ventanal", "cristal",
             "vidriera", "vidrio",
             "ventanita", "ventanilla",
+            # English
+            "window", "windowpane", "glass",
         ],
         "persiana": [
-            "persiana", "blind", "blinds",
+            "persiana",
             "celosía", "celosia",
             "estor", "store",
+            # English
+            "blind", "blinds", "shutter", "shutters",
+            "roller blind", "venetian blind",
         ],
         "toldo": [
             "toldo", "awning", "marquesina", "parasol"
@@ -108,11 +121,13 @@ class DeviceAliases:
     # ==========================================================================
     CURTAINS: Dict[str, List[str]] = {
         "cortina": [
-            "cortinas", "curtain", "curtains",
+            "cortinas",
             "visillo", "visillos",
-            "drape", "drapes",
             "cortinado", "cortinaje",
             "blackout",                                  # Cortinas blackout
+            # English
+            "curtain", "curtains", "drape", "drapes",
+            "window covering", "drapery",
         ],
         "cortina_motorizada": [
             "cortina eléctrica", "cortina electrica",
@@ -141,9 +156,12 @@ class DeviceAliases:
     # ==========================================================================
     ALARMS: Dict[str, List[str]] = {
         "alarma": [
-            "alarm", "sirena", "alerta",
+            "sirena", "alerta",
             "sistema de alarma", "sistema de seguridad",
-            "alarma de seguridad", "security alarm",
+            "alarma de seguridad",
+            # English  
+            "alarm", "security alarm", "siren",
+            "alarm system", "security system",
         ],
         "detector": [
             "detector de humo", "smoke detector",
@@ -254,54 +272,75 @@ class RoomAliases:
     ROOMS: Dict[str, List[str]] = {
         # Áreas principales
         "sala": [
-            "living", "salón", "salon", "sala de estar", "estancia",
-            "living room", "lounge", "recibidor",
-            "sala principal", "living principal",
+            "salón", "salon", "sala de estar", "estancia",
+            "recibidor", "sala principal",
+            # English
+            "living", "living room", "lounge",
+            "family room", "sitting room",
         ],
         "cocina": [
-            "kitchen", "cocineta", "kitchenette",
+            "cocineta",
             "área de cocina", "zona de cocina",
+            # English
+            "kitchen", "kitchenette",
         ],
         "comedor": [
-            "dining", "dining room", "área de comedor",
+            "área de comedor",
             "zona de comedor", "antecomedor",
+            # English
+            "dining", "dining room", "dining area",
         ],
         
         # Habitaciones
         "dormitorio": [
             "habitación", "habitacion", "cuarto", "recámara", "recamara",
-            "bedroom", "alcoba", "pieza",                # "Pieza" común en Chile/Arg
+            "alcoba", "pieza",                # "Pieza" común en Chile/Arg
             "cuarto de dormir", "aposento",
+            # English
+            "bedroom", "room", "sleeping room",
         ],
         "dormitorio_principal": [
             "habitación principal", "cuarto principal", "recámara principal",
-            "master bedroom", "dormitorio master", "suite principal",
+            "dormitorio master", "suite principal",
             "cuarto matrimonial",
+            # English
+            "master bedroom", "main bedroom", "primary bedroom",
         ],
         "dormitorio_ninos": [
             "habitación de niños", "cuarto de niños", "cuarto de los niños",
-            "habitación infantil", "kids room", "cuarto de los chicos",
+            "habitación infantil", "cuarto de los chicos",
+            # English
+            "kids room", "children's room", "kids bedroom",
         ],
         "dormitorio_invitados": [
-            "habitación de invitados", "cuarto de invitados", "guest room",
+            "habitación de invitados", "cuarto de invitados",
             "cuarto de huéspedes", "habitación de huéspedes",
+            # English
+            "guest room", "guest bedroom", "spare room",
         ],
         
         # Baños
         "bano": [
-            "baño", "bathroom", "sanitario", "aseo", "servicio",
-            "toilette", "toilet", "wc", "lavabo",
+            "baño", "sanitario", "aseo", "servicio",
+            "toilette", "wc", "lavabo",
             "medio baño",
+            # English
+            "bathroom", "toilet", "restroom", "washroom",
+            "half bath", "powder room",
         ],
         "bano_principal": [
-            "baño principal", "baño master", "master bathroom",
+            "baño principal", "baño master",
             "baño de la habitación", "baño en suite",
+            # English
+            "master bathroom", "main bathroom", "ensuite",
         ],
         
         # Áreas de trabajo/estudio
         "oficina": [
-            "office", "despacho", "estudio", "home office",
+            "despacho", "estudio",
             "cuarto de trabajo", "área de trabajo",
+            # English
+            "office", "home office", "study", "workspace",
         ],
         "biblioteca": [
             "library", "sala de lectura", "cuarto de lectura",
@@ -310,30 +349,42 @@ class RoomAliases:
         # Exteriores y áreas auxiliares
         "garage": [
             "garaje", "cochera", "parking", "estacionamiento",
+            # English
+            "carport",
         ],
         "jardin": [
-            "jardín", "garden", "patio", "terraza", "balcón", "balcon",
+            "jardín", "patio", "terraza", "balcón", "balcon",
             "área exterior", "exterior", "afuera",
             "quincho",                                   # Argentina
+            # English
+            "garden", "yard", "backyard", "outdoor area",
         ],
         "terraza": [
-            "terrace", "azotea", "rooftop", "mirador",
+            "azotea", "mirador",
             "terraza techada",
+            # English
+            "terrace", "rooftop", "deck", "patio",
         ],
         "patio": [
-            "patio trasero", "backyard", "traspatio",
-            "patio delantero", "front yard",
+            "patio trasero", "traspatio",
+            "patio delantero",
+            # English
+            "backyard", "front yard", "courtyard",
         ],
         
         # Áreas de servicio
         "lavanderia": [
-            "lavandería", "laundry", "cuarto de lavado",
+            "lavandería", "cuarto de lavado",
             "área de lavado", "zona de lavado",
             "lavadero",                                  # Argentina
+            # English
+            "laundry", "laundry room", "utility room",
         ],
         "bodega": [
-            "almacén", "almacen", "storage", "despensa",
+            "almacén", "almacen", "despensa",
             "cuarto de almacenamiento", "trastero",
+            # English
+            "storage", "storage room", "pantry", "cellar",
         ],
         
         # Áreas de recreación
@@ -400,25 +451,37 @@ class ActionAliases:
     ACTIONS: Dict[str, List[str]] = {
         "encender": [
             "prender", "activar", "iniciar", "arrancar",
-            "conectar", "dar luz", "iluminar", "turn on",
+            "conectar", "dar luz", "iluminar",
             "poner en marcha", "habilitar",
+            # English
+            "turn on", "switch on", "power on",
+            "enable", "activate", "start",
         ],
         "apagar": [
             "desactivar", "detener", "parar", "desconectar",
-            "cortar", "quitar", "turn off",
+            "cortar", "quitar",
             "inhabilitar", "deshabilitar",
+            # English
+            "turn off", "switch off", "power off",
+            "disable", "deactivate", "stop",
         ],
         "abrir": [
             "despejar", "descorrer", "levantar", "subir",
-            "destapar", "destrabar", "open",
+            "destapar", "destrabar",
+            # English
+            "open", "unlock", "raise", "lift",
         ],
         "cerrar": [
             "correr", "bajar", "tapar", "bloquear",
-            "trabar", "close",
+            "trabar",
+            # English
+            "close", "shut", "lock", "lower",
         ],
         "consultar": [
             "verificar", "revisar", "checar", "chequear",
-            "ver", "mostrar", "status", "check",
+            "ver", "mostrar",
+            # English
+            "check", "status", "verify", "show",
         ],
     }
     

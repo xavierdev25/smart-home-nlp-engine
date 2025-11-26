@@ -22,25 +22,35 @@ class TTSEngine(str, Enum):
 
 
 class TTSVoice(str, Enum):
-    """Voces en español disponibles para Edge TTS"""
-    # España
+    """Voces disponibles para Edge TTS"""
+    # Spanish - España
     ES_ALVARO = "es-ES-AlvaroNeural"
     ES_ELVIRA = "es-ES-ElviraNeural"
-    # México  
+    # Spanish - México  
     MX_DALIA = "es-MX-DaliaNeural"
     MX_JORGE = "es-MX-JorgeNeural"
-    # Argentina
+    # Spanish - Argentina
     AR_ELENA = "es-AR-ElenaNeural"
     AR_TOMAS = "es-AR-TomasNeural"
-    # Colombia
+    # Spanish - Colombia
     CO_SALOME = "es-CO-SalomeNeural"
     CO_GONZALO = "es-CO-GonzaloNeural"
+    # English - US
+    EN_US_JENNY = "en-US-JennyNeural"
+    EN_US_GUY = "en-US-GuyNeural"
+    EN_US_ARIA = "en-US-AriaNeural"
+    # English - UK
+    EN_GB_SONIA = "en-GB-SoniaNeural"
+    EN_GB_RYAN = "en-GB-RyanNeural"
+    # English - Australia
+    EN_AU_NATASHA = "en-AU-NatashaNeural"
+    EN_AU_WILLIAM = "en-AU-WilliamNeural"
 
 
 class TextToSpeech:
     """
     Clase para convertir texto a voz.
-    Soporta múltiples motores de síntesis.
+    Soporta múltiples motores de síntesis e idiomas (ES/EN).
     """
     
     def __init__(
@@ -48,7 +58,8 @@ class TextToSpeech:
         engine: TTSEngine = TTSEngine.EDGE_TTS,
         voice: Union[TTSVoice, str] = TTSVoice.MX_DALIA,
         rate: int = 150,
-        volume: float = 1.0
+        volume: float = 1.0,
+        language: str = "es"
     ):
         """
         Inicializa el sintetizador de voz.
@@ -58,11 +69,13 @@ class TextToSpeech:
             voice: Voz a utilizar (depende del motor)
             rate: Velocidad de habla (palabras por minuto)
             volume: Volumen (0.0 a 1.0)
+            language: Idioma ('es' o 'en')
         """
         self.engine = engine
         self.voice = voice.value if isinstance(voice, TTSVoice) else voice
         self.rate = rate
         self.volume = volume
+        self.language = language
         self._tts_engine = None
         
         if engine == TTSEngine.PYTTSX3:
@@ -126,8 +139,11 @@ class TextToSpeech:
             from gtts import gTTS
             import pygame
             
+            # Determinar idioma para gTTS
+            lang = 'en' if self.language == 'en' else 'es'
+            
             # Generar audio
-            tts = gTTS(text=text, lang='es', slow=False)
+            tts = gTTS(text=text, lang=lang, slow=False)
             
             # Guardar en memoria
             fp = io.BytesIO()
@@ -286,7 +302,10 @@ class TextToSpeech:
         try:
             from gtts import gTTS
             
-            tts = gTTS(text=text, lang='es', slow=False)
+            # Determinar idioma para gTTS
+            lang = 'en' if self.language == 'en' else 'es'
+            
+            tts = gTTS(text=text, lang=lang, slow=False)
             fp = io.BytesIO()
             tts.write_to_fp(fp)
             fp.seek(0)
@@ -341,7 +360,8 @@ class TextToSpeech:
                 
             elif self.engine == TTSEngine.GTTS:
                 from gtts import gTTS
-                tts = gTTS(text=text, lang='es', slow=False)
+                lang = 'en' if self.language == 'en' else 'es'
+                tts = gTTS(text=text, lang=lang, slow=False)
                 tts.save(output_path)
                 
             elif self.engine == TTSEngine.PYTTSX3:

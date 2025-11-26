@@ -31,6 +31,10 @@ class TextToSpeechRequest(BaseModel):
         default="es-MX-DaliaNeural",
         description="Voz a utilizar (ver /voice/voices para opciones)"
     )
+    language: str = Field(
+        default="es",
+        description="Idioma del texto ('es' o 'en')"
+    )
 
 
 class VoiceCommandResponse(BaseModel):
@@ -269,7 +273,7 @@ async def transcribe_audio(
     description="""
     Convierte texto a audio MP3 usando síntesis de voz.
     
-    ## Voces Disponibles
+    ## Voces en Español
     - `es-MX-DaliaNeural` - Dalia (México, femenina) - DEFAULT
     - `es-MX-JorgeNeural` - Jorge (México, masculina)
     - `es-ES-ElviraNeural` - Elvira (España, femenina)
@@ -277,12 +281,18 @@ async def transcribe_audio(
     - `es-AR-ElenaNeural` - Elena (Argentina, femenina)
     - `es-AR-TomasNeural` - Tomás (Argentina, masculina)
     
+    ## Voces en Inglés
+    - `en-US-JennyNeural` - Jenny (US, femenina)
+    - `en-US-GuyNeural` - Guy (US, masculina)
+    - `en-GB-SoniaNeural` - Sonia (UK, femenina)
+    - `en-GB-RyanNeural` - Ryan (UK, masculina)
+    
     ## Ejemplo
     ```bash
     curl -X POST "http://localhost:8001/voice/synthesize" \\
       -H "Content-Type: application/json" \\
-      -d '{"text": "Luz del comedor encendida"}' \\
-      --output respuesta.mp3
+      -d '{"text": "Living room light turned on", "language": "en", "voice": "en-US-JennyNeural"}' \\
+      --output response.mp3
     ```
     """
 )
@@ -293,8 +303,9 @@ async def synthesize_speech(request: TextToSpeechRequest):
         from voice.text_to_speech import TextToSpeech, TTSEngine
         
         tts = TextToSpeech(
-            engine=TTSEngine.EDGE_TTS,
-            voice=request.voice
+            engine=TTSEngine.GTTS,
+            voice=request.voice,
+            language=request.language
         )
         
         audio_bytes = await tts.synthesize_to_bytes(request.text)
@@ -324,18 +335,21 @@ async def synthesize_speech(request: TextToSpeechRequest):
 @router.get(
     "/voices",
     summary="Listar voces disponibles",
-    description="Retorna las voces de síntesis disponibles para español"
+    description="Retorna las voces de síntesis disponibles (español e inglés)"
 )
-async def list_voices():
+async def list_voices(
+    language: str = Query("es", description="Filtrar por idioma: 'es' o 'en'")
+):
     """Lista las voces de TTS disponibles"""
     
     try:
         from voice.text_to_speech import TextToSpeech
         
-        voices = TextToSpeech.list_edge_voices(language="es")
+        voices = TextToSpeech.list_edge_voices(language=language)
         
         return {
             "success": True,
+            "language": language,
             "total": len(voices),
             "voices": [
                 {

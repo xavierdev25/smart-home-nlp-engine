@@ -1,9 +1,9 @@
 """
-Sistema de Detección de Negaciones
-==================================
+Sistema de Detección de Negaciones - Bilingüe ES/EN
+===================================================
 
-Detecta y procesa negaciones en comandos de voz/texto en español.
-Maneja casos como "no enciendas", "no quiero que se abra", etc.
+Detecta y procesa negaciones en comandos de voz/texto en español e inglés.
+Maneja casos como "no enciendas", "don't turn on", etc.
 """
 import re
 from typing import List, Tuple, Dict, Optional
@@ -54,6 +54,14 @@ class NegationDetector:
         r"\bno\s+(apagués|desactivés|detengás|parés)\b",
         r"\bno\s+(abrás|despejés|descorrás|levantés)\b",
         r"\bno\s+(cerrés|corrás|bajés|tapés|bloqueés)\b",
+        
+        # ===== ENGLISH DIRECT NEGATION PATTERNS =====
+        r"\b(don't|do\s+not|dont)\s+(turn\s+on|switch\s+on|enable|activate)\b",
+        r"\b(don't|do\s+not|dont)\s+(turn\s+off|switch\s+off|disable|deactivate)\b",
+        r"\b(don't|do\s+not|dont)\s+(open|unlock|raise)\b",
+        r"\b(don't|do\s+not|dont)\s+(close|shut|lock|lower)\b",
+        r"\b(do\s+not|don't|dont)\s+(start|stop)\b",
+        r"\bnot?\s+(turn|switch)\s+(on|off)\b",
     ]
     
     # ==========================================================================
@@ -85,6 +93,11 @@ class NegationDetector:
         # "Prefiero que no..."
         r"\bprefiero\s+(que\s+)?no\s+(enciendas?|prendas?|apagues?|abras?|cierres?)\b",
         r"\bprefiero\s+(que\s+)?no\s+se\s+(encienda|prenda|apague|abra|cierre)\b",
+        
+        # ===== ENGLISH COMPOUND NEGATION PATTERNS =====
+        r"\b(i\s+)?don't\s+want\s+(to|you\s+to)\s+(turn|switch|open|close)\b",
+        r"\b(please\s+)?(do\s+)?not\s+(turn|switch|open|close)\b",
+        r"\bi\s+(don't|do\s+not)\s+(need|want)\s+(it|the\s+\w+)\s+(on|off|open|closed)\b",
     ]
     
     # ==========================================================================
@@ -121,15 +134,26 @@ class NegationDetector:
         
         # "Nada de"
         r"\bnada\s+de\s+(encender|prender|apagar|abrir|cerrar)\b",
+        
+        # ===== ENGLISH IMPLICIT NEGATION PATTERNS =====
+        r"\bnever\s+(turn|switch|open|close)\b",
+        r"\b(stop|avoid)\s+(turning|opening|closing)\b",
+        r"\bkeep\s+(it\s+)?(off|closed|shut)\b",
+        r"\bleave\s+(it\s+)?(off|closed|shut)\b",
     ]
     
     # ==========================================================================
     # PALABRAS CLAVE DE NEGACIÓN
     # ==========================================================================
     NEGATION_KEYWORDS: List[str] = [
+        # Spanish
         "no", "ni", "nunca", "jamás", "jamas", "tampoco",
         "ninguno", "ninguna", "nada", "nadie",
         "sin", "apenas", "difícilmente", "dificilmente",
+        # English
+        "not", "don't", "dont", "never", "no",
+        "cannot", "can't", "cant", "won't", "wont",
+        "shouldn't", "shouldnt", "wouldn't", "wouldnt",
     ]
     
     # ==========================================================================
@@ -141,6 +165,12 @@ class NegationDetector:
         r"\bpor\s+qué\s+no\b",                           # "¿Por qué no...?"
         r"\bcómo\s+no\b",                                # "¡Cómo no!" (afirmativo)
         r"\b(ya|que)\s+no\s+(está|funciona)\b",         # Estado actual negativo
+        # English false positives
+        r"\bwhy\s+not\b",                                # "Why not...?"
+        r"\bwhy\s+don't\s+you\b",                        # Polite request
+        r"\bi\s+don't\s+know\s+(if|how|what)\b",         # "I don't know if..."
+        r"\bno\s+problem\b",                             # "No problem"
+        r"\bnot\s+(yet|sure|bad)\b",                     # "Not yet", "Not sure"
     ]
     
     def __init__(self):
@@ -287,6 +317,7 @@ class NegationDetector:
         
         # Mapeo de verbos a intenciones
         intent_mapping = {
+            # Spanish
             "enciend": "turn_on",
             "prend": "turn_on",
             "activ": "turn_on",
@@ -304,6 +335,22 @@ class NegationDetector:
             "baj": "close",
             "tap": "close",
             "bloque": "close",
+            # English
+            "turn on": "turn_on",
+            "switch on": "turn_on",
+            "enable": "turn_on",
+            "start": "turn_on",
+            "turn off": "turn_off",
+            "switch off": "turn_off",
+            "disable": "turn_off",
+            "stop": "turn_off",
+            "open": "open",
+            "unlock": "open",
+            "raise": "open",
+            "close": "close",
+            "shut": "close",
+            "lock": "close",
+            "lower": "close",
         }
         
         for verb_stem, intent in intent_mapping.items():
@@ -324,6 +371,7 @@ class NegationDetector:
         """
         # Patrones de eliminación ordenados por especificidad
         removal_patterns = [
+            # Spanish
             (r"\bno\s+(quiero|deseo|necesito)\s+(que\s+)?(se\s+)?", ""),
             (r"\bprefiero\s+(que\s+)?no\s+", ""),
             (r"\bdeja\s+de\s+", ""),
@@ -333,6 +381,13 @@ class NegationDetector:
             (r"\bjamás\s+", ""),
             (r"\bno\s+(la|lo|las|los|le|les|me|te)\s+", ""),
             (r"\bno\s+", ""),
+            # English
+            (r"\b(i\s+)?(don't|do\s+not)\s+want\s+(to|you\s+to)\s+", ""),
+            (r"\b(please\s+)?(do\s+)?not\s+", ""),
+            (r"\b(don't|dont|do\s+not)\s+", ""),
+            (r"\bnever\s+", ""),
+            (r"\bstop\s+", ""),
+            (r"\bavoid\s+", ""),
         ]
         
         result = text
@@ -341,21 +396,30 @@ class NegationDetector:
         
         return result.strip()
     
-    def get_negated_response(self, original_intent: str) -> str:
+    def get_negated_response(self, original_intent: str, language: str = "es") -> str:
         """
         Genera una respuesta apropiada para un comando negado.
         
         Args:
             original_intent: La intención original que fue negada
+            language: Idioma de respuesta ('es' o 'en')
             
         Returns:
             Mensaje de respuesta
         """
-        responses = {
+        responses_es = {
             "turn_on": "Entendido, NO encenderé el dispositivo.",
             "turn_off": "Entendido, NO apagaré el dispositivo.",
             "open": "Entendido, NO abriré el dispositivo.",
             "close": "Entendido, NO cerraré el dispositivo.",
             "unknown": "Entendido, cancelaré la acción.",
         }
+        responses_en = {
+            "turn_on": "Got it, I will NOT turn on the device.",
+            "turn_off": "Got it, I will NOT turn off the device.",
+            "open": "Got it, I will NOT open the device.",
+            "close": "Got it, I will NOT close the device.",
+            "unknown": "Got it, I will cancel the action.",
+        }
+        responses = responses_en if language == "en" else responses_es
         return responses.get(original_intent, responses["unknown"])

@@ -1,8 +1,8 @@
 """
-Definiciones de Intenciones (Intents)
-=====================================
+Definiciones de Intenciones (Intents) - Bilingüe ES/EN
+======================================================
 
-Define los patrones regex para detectar intenciones en español.
+Define los patrones regex para detectar intenciones en español e inglés.
 Cada intent tiene múltiples patrones que cubren variaciones del lenguaje natural.
 """
 import re
@@ -57,6 +57,12 @@ class IntentDefinitions:
         r"\bprendé(me|le)?\b",                      # Argentina/Uruguay
         r"\bencendé(me|le)?\b",                     # Argentina/Uruguay
         r"\bilumina(r|me)?\b",                      # Iluminar
+        
+        # ===== ENGLISH PATTERNS =====
+        r"\b(turn\s+on|switch\s+on)\b",
+        r"\b(power\s+on|start|enable)\b",
+        r"\b(light\s+up|activate)\b",
+        r"\b(please\s+)?(turn|switch)\s+on\b",
     ]
     
     # ==========================================================================
@@ -82,6 +88,12 @@ class IntentDefinitions:
         # Formas regionales
         r"\bapagá(me|le)?\b",                       # Argentina/Uruguay
         r"\bcortá(le)?\s+(la\s+)?luz\b",           # Argentina
+        
+        # ===== ENGLISH PATTERNS =====
+        r"\b(turn\s+off|switch\s+off)\b",
+        r"\b(power\s+off|stop|disable)\b",
+        r"\b(shut\s+(off|down)|deactivate)\b",
+        r"\b(please\s+)?(turn|switch)\s+off\b",
     ]
     
     # ==========================================================================
@@ -107,6 +119,12 @@ class IntentDefinitions:
         # Formas regionales
         r"\babrí(me|le)?\b",                       # Argentina/Uruguay
         r"\bdestrabá(me|le)?\b",                   # Destrabar
+        
+        # ===== ENGLISH PATTERNS =====
+        r"\b(open|unlock|raise)\b",
+        r"\b(lift\s+up|pull\s+up)\b",
+        r"\b(please\s+)?open\b",
+        r"\b(roll\s+up|slide\s+open)\b",
     ]
     
     # ==========================================================================
@@ -131,6 +149,12 @@ class IntentDefinitions:
         # Formas regionales
         r"\bcerrá(me|le)?\b",                      # Argentina/Uruguay
         r"\btrabá(me|le)?\b",                      # Trabar (cerrar con llave)
+        
+        # ===== ENGLISH PATTERNS =====
+        r"\b(close|shut|lock)\b",
+        r"\b(lower|pull\s+down)\b",
+        r"\b(please\s+)?close\b",
+        r"\b(roll\s+down|slide\s+(shut|close))\b",
     ]
     
     # ==========================================================================
@@ -157,6 +181,13 @@ class IntentDefinitions:
         # Formas regionales
         r"\b(fijate|fijá|fíjate)\s+(si|como|cómo)\b",  # Argentina
         r"\b(checá|chequeá)\b",                          # Argentina
+        
+        # ===== ENGLISH PATTERNS =====
+        r"\b(is|are)\s+(the\s+)?\w+\s+(on|off|open|closed)\b",
+        r"\b(what\s+is|what's)\s+(the\s+)?(status|state)\b",
+        r"\b(check|verify|show)\s+(the\s+)?(status|state)\b",
+        r"\b(how\s+is|how's)\s+(the\s+)?\w+\b",
+        r"\b(status|state)\s+(of|for)\b",
     ]
     
     # ==========================================================================
@@ -168,7 +199,11 @@ class IntentDefinitions:
         r"\b(invierte|invertir|invierta)\s+(el\s+)?(estado)?\b",
         r"\b(si\s+está\s+)?(encendid[oa]|prendid[oa])\s*,?\s*(apaga|apágala|apágalo)\b",
         r"\b(si\s+está\s+)?(apagad[oa])\s*,?\s*(enciende|préndela|préndelo)\b",
-        r"\bswitch(ea|ear)?\b",
+        r"\bswitch(ea|ear)?(?!\s+(on|off))\b",  # "switch" pero no "switch on/off"
+        
+        # ===== ENGLISH PATTERNS =====
+        r"\b(toggle|flip)\b",
+        r"\bchange\s+(the\s+)?(state|mode)\b",
     ]
     
     @classmethod

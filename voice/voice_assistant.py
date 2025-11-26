@@ -37,9 +37,9 @@ class VoiceResponse:
 
 
 class ResponseGenerator:
-    """Genera respuestas en lenguaje natural para el usuario"""
+    """Genera respuestas en lenguaje natural para el usuario (ES/EN)"""
     
-    RESPONSES = {
+    RESPONSES_ES = {
         # Respuestas para acciones exitosas
         "turn_on": {
             "normal": [
@@ -145,13 +145,133 @@ class ResponseGenerator:
         ],
     }
     
+    RESPONSES_EN = {
+        # Responses for successful actions
+        "turn_on": {
+            "normal": [
+                "Done, {device} is now on",
+                "I've turned on {device}",
+                "Turning on {device}",
+                "{device} activated",
+            ],
+            "negated": [
+                "Got it, I won't turn on {device}",
+                "Okay, {device} will stay off",
+                "Understood, not activating {device}",
+            ]
+        },
+        "turn_off": {
+            "normal": [
+                "Done, {device} is now off",
+                "I've turned off {device}",
+                "Turning off {device}",
+                "{device} deactivated",
+            ],
+            "negated": [
+                "Got it, I won't turn off {device}",
+                "Okay, {device} will stay on",
+                "Understood, keeping {device} active",
+            ]
+        },
+        "open": {
+            "normal": [
+                "Opening {device}",
+                "Done, {device} is now open",
+                "I've opened {device}",
+            ],
+            "negated": [
+                "Got it, I won't open {device}",
+                "Okay, {device} will remain closed",
+            ]
+        },
+        "close": {
+            "normal": [
+                "Closing {device}",
+                "Done, {device} is now closed",
+                "I've closed {device}",
+            ],
+            "negated": [
+                "Got it, I won't close {device}",
+                "Okay, {device} will remain open",
+            ]
+        },
+        "status": {
+            "normal": [
+                "Checking status of {device}",
+                "Verifying {device}",
+            ],
+            "negated": [
+                "Got it, I won't check the status",
+            ]
+        },
+        "toggle": {
+            "normal": [
+                "Toggling {device}",
+                "Switching {device} state",
+            ],
+            "negated": [
+                "Got it, I won't toggle {device}",
+            ]
+        },
+        "unknown": {
+            "normal": [
+                "I didn't understand that. Could you repeat?",
+                "Sorry, I didn't recognize that command",
+                "Could you say it differently?",
+            ],
+            "negated": [
+                "I didn't understand the command",
+            ]
+        },
+        # Error responses
+        "no_device": [
+            "I couldn't identify which device you mean",
+            "Which device should I apply that action to?",
+        ],
+        "error": [
+            "An error occurred while processing your request",
+            "Sorry, there was a problem",
+        ],
+        # Assistant responses
+        "greeting": [
+            "Hello! How can I help you?",
+            "Assistant ready. What do you need?",
+        ],
+        "goodbye": [
+            "Goodbye!",
+            "See you later!",
+        ],
+        "listening": [
+            "I'm listening",
+            "Go ahead",
+        ],
+        "no_audio": [
+            "I didn't hear anything. Could you repeat?",
+            "No audio detected. Please try again.",
+        ],
+    }
+    
+    # Default language
+    _language = "es"
+    
+    @classmethod
+    def set_language(cls, language: str):
+        """Set response language ('es' or 'en')"""
+        cls._language = language if language in ["es", "en"] else "es"
+    
+    @classmethod
+    def get_responses(cls) -> dict:
+        """Get responses for current language"""
+        return cls.RESPONSES_EN if cls._language == "en" else cls.RESPONSES_ES
+    
     @classmethod
     def generate(
         cls, 
         intent: str, 
         device: Optional[str] = None,
         negated: bool = False,
-        category: Optional[str] = None
+        category: Optional[str] = None,
+        language: Optional[str] = None
     ) -> str:
         """
         Genera una respuesta contextual.
@@ -161,22 +281,28 @@ class ResponseGenerator:
             device: El dispositivo (opcional)
             negated: Si el comando fue negado
             category: Categoría especial de respuesta
+            language: Idioma ('es' o 'en'), usa el default si None
             
         Returns:
             Texto de respuesta
         """
         import random
         
+        # Use specified language or default
+        if language:
+            responses = cls.RESPONSES_EN if language == "en" else cls.RESPONSES_ES
+        else:
+            responses = cls.get_responses()
+        
         # Categorías especiales
-        if category and category in cls.RESPONSES:
-            responses = cls.RESPONSES[category]
-            return random.choice(responses)
+        if category and category in responses:
+            return random.choice(responses[category])
         
         # Respuestas por intent
-        if intent in cls.RESPONSES:
+        if intent in responses:
             key = "negated" if negated else "normal"
-            responses = cls.RESPONSES[intent].get(key, cls.RESPONSES[intent]["normal"])
-            response = random.choice(responses)
+            intent_responses = responses[intent].get(key, responses[intent]["normal"])
+            response = random.choice(intent_responses)
             
             if device:
                 # Formatear nombre de dispositivo para speech
@@ -185,7 +311,7 @@ class ResponseGenerator:
             
             return response
         
-        return "Comando procesado"
+        return "Command processed" if cls._language == "en" else "Comando procesado"
     
     @staticmethod
     def _format_device_name(device_key: str) -> str:
@@ -200,6 +326,7 @@ class VoiceAssistant:
     """
     Asistente de voz completo para control domótico.
     Integra reconocimiento de voz, procesamiento NLP y síntesis de voz.
+    Soporta español e inglés.
     """
     
     def __init__(
@@ -218,18 +345,30 @@ class VoiceAssistant:
             stt_engine: Motor de reconocimiento de voz
             tts_engine: Motor de síntesis de voz
             tts_voice: Voz a usar para respuestas
-            language: Código de idioma para STT
+            language: Código de idioma para STT (es-ES, en-US, etc.)
             wake_words: Palabras de activación (ej: ["hey casa", "hola casa"])
             nlp_pipeline: Pipeline NLP personalizado (opcional)
         """
+        # Detect base language from locale
+        self.base_language = "en" if language.startswith("en") else "es"
+        
         self.stt = SpeechToText(engine=stt_engine, language=language)
-        self.tts = TextToSpeech(engine=tts_engine, voice=tts_voice)
-        self.wake_words = wake_words or ["casa", "asistente", "oye casa"]
+        self.tts = TextToSpeech(engine=tts_engine, voice=tts_voice, language=self.base_language)
+        
+        # Set wake words based on language
+        if wake_words:
+            self.wake_words = wake_words
+        else:
+            self.wake_words = ["home", "assistant", "hey home"] if self.base_language == "en" else ["casa", "asistente", "oye casa"]
+        
         self.state = AssistantState.IDLE
         self._nlp_pipeline = nlp_pipeline
         self._running = False
         self._on_state_change: Optional[Callable] = None
         self._on_command: Optional[Callable] = None
+        
+        # Set response generator language
+        ResponseGenerator.set_language(self.base_language)
     
     @property
     def nlp_pipeline(self):
