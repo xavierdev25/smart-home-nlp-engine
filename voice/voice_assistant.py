@@ -4,7 +4,8 @@ Integra STT + NLP Pipeline + TTS para control por voz
 """
 import logging
 import asyncio
-from typing import Optional, Dict, Any, Callable
+import httpx
+from typing import Optional, Dict, Any, Callable, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -378,6 +379,76 @@ class VoiceAssistant:
             self._nlp_pipeline = nlp_pipeline
         return self._nlp_pipeline
     
+    def _get_endpoint_for_action(self, device_key: str, intent: str) -> Optional[str]:
+        """
+        Obtiene el endpoint correspondiente para la acción.
+        
+        Args:
+            device_key: Clave del dispositivo
+            intent: Intención (turn_on, turn_off, open, close, status)
+            
+        Returns:
+            URL del endpoint o None
+        """
+        from database.connection import SessionLocal
+        from services.device_service import DeviceService
+        
+        try:
+            db = SessionLocal()
+            service = DeviceService(db)
+            endpoint = service.get_endpoint(device_key, intent)
+            db.close()
+            return endpoint
+        except Exception as e:
+            logger.error(f"Error obteniendo endpoint: {e}")
+            return None
+    
+    async def _execute_device_action(self, device_key: str, intent: str) -> Tuple[bool, Optional[str]]:
+        """
+        Ejecuta la acción en el dispositivo llamando a su endpoint.
+        
+        Args:
+            device_key: Clave del dispositivo
+            intent: Intención (turn_on, turn_off, open, close, status)
+            
+        Returns:
+            Tupla (éxito, mensaje_error)
+        """
+        endpoint = self._get_endpoint_for_action(device_key, intent)
+        
+        if not endpoint:
+            logger.warning(f"No hay endpoint configurado para {device_key} - {intent}")
+            return True, None  # No es un error crítico, solo no hay endpoint
+        
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                # Determinar método HTTP (GET para status, POST para acciones)
+                if intent == "status":
+                    response = await client.get(endpoint)
+                else:
+                    response = await client.post(endpoint)
+                
+                if response.status_code in [200, 201, 204]:
+                    logger.info(f"✅ Endpoint ejecutado: {endpoint} -> {response.status_code}")
+                    return True, None
+                else:
+                    error_msg = f"Endpoint respondió con código {response.status_code}"
+                    logger.warning(f"⚠️ {error_msg}: {endpoint}")
+                    return False, error_msg
+                    
+        except httpx.TimeoutException:
+            error_msg = "Timeout al conectar con el dispositivo"
+            logger.error(f"❌ {error_msg}: {endpoint}")
+            return False, error_msg
+        except httpx.ConnectError:
+            error_msg = "No se pudo conectar con el dispositivo"
+            logger.error(f"❌ {error_msg}: {endpoint}")
+            return False, error_msg
+        except Exception as e:
+            error_msg = f"Error ejecutando acción: {str(e)}"
+            logger.error(f"❌ {error_msg}")
+            return False, error_msg
+    
     def set_callbacks(
         self,
         on_state_change: Optional[Callable[[AssistantState], None]] = None,
@@ -464,11 +535,21 @@ class VoiceAssistant:
             device = result.get("device")
             negated = result.get("negated", False)
             
+            # Ejecutar acción en el dispositivo (solo si no está negado y hay dispositivo válido)
+            action_success = True
+            action_error = None
+            
+            if device and intent in ["turn_on", "turn_off", "open", "close", "status"] and not negated:
+                action_success, action_error = await self._execute_device_action(device, intent)
+            
             # Generar respuesta
             if intent == "unknown":
                 response_text = ResponseGenerator.generate("unknown")
             elif not device and intent not in ["status"]:
                 response_text = ResponseGenerator.generate(None, category="no_device")
+            elif action_error:
+                # Hubo error al ejecutar el endpoint
+                response_text = ResponseGenerator.generate(None, category="error")
             else:
                 response_text = ResponseGenerator.generate(intent, device, negated)
             

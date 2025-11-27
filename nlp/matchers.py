@@ -139,6 +139,9 @@ class DeviceMatcher:
     Permite búsqueda O(1) de dispositivos por alias.
     """
     
+    # Preposiciones y artículos a eliminar para mejor matching
+    SKIP_WORDS = {'del', 'de', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'en', 'al'}
+    
     def __init__(self, devices: Optional[List[Dict]] = None):
         """
         Inicializa el matcher con los dispositivos disponibles.
@@ -154,6 +157,12 @@ class DeviceMatcher:
         
         if devices:
             self._build_index(devices)
+    
+    def _remove_skip_words(self, text: str) -> str:
+        """Elimina preposiciones y artículos del texto"""
+        words = text.split()
+        filtered = [w for w in words if w not in self.SKIP_WORDS]
+        return ' '.join(filtered)
     
     def _build_index(self, devices: List[Dict]) -> None:
         """
@@ -212,9 +221,26 @@ class DeviceMatcher:
             DeviceMatch con el dispositivo encontrado
         """
         normalized = self.normalizer.normalize(text)
+        # También crear versión sin preposiciones/artículos
+        normalized_clean = self._remove_skip_words(normalized)
         tokens = normalized.split()
+        tokens_clean = normalized_clean.split()
         
-        # Estrategia 1: Buscar frases completas (n-gramas)
+        # Estrategia 1: Buscar frases completas (n-gramas) - primero sin preposiciones
+        for n in range(min(4, len(tokens_clean)), 0, -1):
+            for i in range(len(tokens_clean) - n + 1):
+                phrase = ' '.join(tokens_clean[i:i+n])
+                if phrase in self.device_index:
+                    device = self.device_index[phrase]
+                    return DeviceMatch(
+                        device_key=device["device_key"],
+                        device_type=device["type"],
+                        confidence=0.95 if n >= 2 else 0.85,
+                        matched_alias=phrase,
+                        room=device.get("room")
+                    )
+        
+        # Estrategia 2: Buscar frases completas con preposiciones (texto original)
         for n in range(min(4, len(tokens)), 0, -1):
             for i in range(len(tokens) - n + 1):
                 phrase = ' '.join(tokens[i:i+n])
@@ -228,8 +254,8 @@ class DeviceMatcher:
                         room=device.get("room")
                     )
         
-        # Estrategia 2: Buscar coincidencia parcial (más estricta)
-        for token in tokens:
+        # Estrategia 3: Buscar coincidencia parcial (más estricta)
+        for token in tokens_clean:
             # Ignorar tokens muy cortos o stopwords comunes
             if len(token) < 4 or token in ['por', 'para', 'con', 'sin', 'que', 'del', 'las', 'los', 'una', 'uno']:
                 continue

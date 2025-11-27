@@ -49,6 +49,57 @@ python main.py
 
 **Servidor disponible en:** http://localhost:8001
 
+---
+
+## 🎮 Ejecución Interactiva (Recomendado)
+
+El archivo `run.py` integra todas las funcionalidades en un solo lugar:
+
+```bash
+# Menú interactivo completo
+python run.py
+
+# Modo texto directo (escribe comandos, respuestas por voz)
+python run.py --text
+
+# Modo voz directo (habla comandos, respuestas por voz)
+python run.py --voice
+
+# Servidor API
+python run.py --server
+
+# Cambiar idioma inicial
+python run.py --text --lang en   # Inglés
+python run.py --voice --lang es  # Español
+```
+
+### Menú Interactivo
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║   🏠 Smart Home NLP Engine                                   ║
+║   Bilingual Voice Controller (ES/EN)                         ║
+╚══════════════════════════════════════════════════════════════╝
+
+  1) 📝 Modo Texto     - Escribe comandos, respuestas por voz
+  2) 🎤 Modo Voz       - Habla comandos, respuestas por voz
+  3) 🔄 Modo Completo  - Texto + Voz simultáneo
+  4) 🌐 Servidor API   - Iniciar FastAPI en puerto 8001
+  5) ⚙️  Configuración  - Cambiar idioma y voz
+  0) 🚪 Salir
+```
+
+### Comandos durante la ejecución
+
+| Comando          | Descripción                             |
+| ---------------- | --------------------------------------- |
+| `lang es`        | Cambiar a español                       |
+| `lang en`        | Cambiar a inglés                        |
+| `salir` / `exit` | Volver al menú                          |
+| `v` / `voice`    | (Modo completo) Activar entrada por voz |
+
+---
+
 ### Dependencias de Voz (Opcional)
 
 ```bash
@@ -74,6 +125,7 @@ ollama pull phi3
 
 ```
 smart-home-nlp-engine/
+├── run.py                   # 🎮 Ejecutor interactivo (texto + voz + API)
 ├── main.py                  # 🚀 Servidor FastAPI
 ├── requirements.txt         # Dependencias
 ├── config/

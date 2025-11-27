@@ -16,6 +16,7 @@ from pathlib import Path
 from functools import lru_cache
 
 from config.settings import settings
+from database.connection import SessionLocal
 
 # Importar componentes del módulo NLP
 from nlp import (
@@ -45,8 +46,8 @@ class NLPPipeline:
         self.ollama_url = f"{settings.OLLAMA_BASE_URL}/api/generate"
         self.model = settings.OLLAMA_MODEL
         
-        # Cargar datos de dispositivos
-        self.devices_data = self._load_devices()
+        # Cargar datos de dispositivos desde la base de datos SQLite
+        self.devices_data = self._load_devices_from_db()
         
         # Inicializar componentes NLP del módulo
         self.normalizer = TextNormalizer()
@@ -72,20 +73,21 @@ class NLPPipeline:
                 "aliases": info.get("aliases", []),
             })
         return result
-        
-    def _load_devices(self) -> Dict[str, Any]:
-        """Carga el archivo de dispositivos JSON"""
-        devices_path = Path(__file__).parent.parent / settings.DEVICES_FILE
+    
+    def _load_devices_from_db(self) -> Dict[str, Any]:
+        """Carga los dispositivos desde la base de datos SQLite"""
         try:
-            with open(devices_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                logger.info(f"Cargados {len(data.get('devices', {}))} dispositivos desde {devices_path}")
+            from services.device_service import DeviceService
+            db = SessionLocal()
+            try:
+                service = DeviceService(db)
+                data = service.get_devices_for_nlp()
+                logger.info(f"Cargados {len(data.get('devices', {}))} dispositivos desde la base de datos")
                 return data
-        except FileNotFoundError:
-            logger.error(f"Archivo de dispositivos no encontrado: {devices_path}")
-            return {"devices": {}, "rooms": {}, "device_types": {}}
-        except json.JSONDecodeError as e:
-            logger.error(f"Error al parsear archivo de dispositivos: {e}")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Error al cargar dispositivos desde la BD: {e}")
             return {"devices": {}, "rooms": {}, "device_types": {}}
     
     @lru_cache(maxsize=1)
@@ -376,15 +378,15 @@ JSON:"""
         return self.devices_data.get("devices", {}).get(device_key)
     
     def reload_devices(self) -> bool:
-        """Recarga el archivo de dispositivos (útil para actualizaciones en caliente)"""
+        """Recarga los dispositivos desde la base de datos (útil para actualizaciones en caliente)"""
         try:
-            self.devices_data = self._load_devices()
+            self.devices_data = self._load_devices_from_db()
             devices_list = self._get_devices_list()
             self.device_matcher.update_devices(devices_list)
             self.entity_extractor.update_devices(devices_list)
             self._build_system_prompt.cache_clear()
             self.system_prompt = self._build_system_prompt()
-            logger.info("Dispositivos recargados exitosamente")
+            logger.info("Dispositivos recargados exitosamente desde la base de datos")
             return True
         except Exception as e:
             logger.error(f"Error recargando dispositivos: {e}")
