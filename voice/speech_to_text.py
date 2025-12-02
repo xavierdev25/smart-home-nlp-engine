@@ -1,6 +1,7 @@
 """
 Speech-to-Text (STT) - Reconocimiento de voz
 Convierte audio a texto usando múltiples backends
+Soporta modo OFFLINE con Whisper o Vosk
 """
 import logging
 import io
@@ -20,29 +21,60 @@ class STTEngine(str, Enum):
     WHISPER = "whisper"         # OpenAI Whisper (local, offline)
     VOSK = "vosk"               # Vosk (local, offline, ligero)
     SPHINX = "sphinx"           # CMU Sphinx (local, offline)
+    
+    @classmethod
+    def get_offline_engines(cls) -> list:
+        """Retorna lista de motores que funcionan offline"""
+        return [cls.WHISPER, cls.VOSK, cls.SPHINX]
+    
+    @classmethod
+    def get_online_engines(cls) -> list:
+        """Retorna lista de motores que requieren internet"""
+        return [cls.GOOGLE, cls.GOOGLE_CLOUD]
+    
+    @classmethod
+    def is_offline(cls, engine: 'STTEngine') -> bool:
+        """Verifica si un motor funciona offline"""
+        return engine in cls.get_offline_engines()
 
 
 class SpeechToText:
     """
     Clase para convertir audio a texto.
     Soporta múltiples motores de reconocimiento.
+    Incluye soporte completo para modo OFFLINE.
     """
     
-    def __init__(self, engine: STTEngine = STTEngine.GOOGLE, language: str = "es-ES"):
+    def __init__(
+        self, 
+        engine: STTEngine = STTEngine.GOOGLE, 
+        language: str = "es-ES",
+        whisper_model: str = "base",
+        vosk_model_path: Optional[str] = None
+    ):
         """
         Inicializa el reconocedor de voz.
         
         Args:
             engine: Motor de reconocimiento a usar
-            language: Código de idioma (es-ES, es-MX, es-AR)
+            language: Código de idioma (es-ES, es-MX, es-AR, en-US)
+            whisper_model: Modelo de Whisper (tiny, base, small, medium, large)
+            vosk_model_path: Ruta al modelo Vosk descargado
         """
         self.engine = engine
         self.language = language
+        self.whisper_model_name = whisper_model
+        self.vosk_model_path = vosk_model_path or os.environ.get("VOSK_MODEL_PATH", "models/vosk-model-es")
         self._recognizer = None
         self._whisper_model = None
         self._vosk_model = None
         
+        # Pre-cargar modelo offline si es necesario
         self._init_recognizer()
+        if engine == STTEngine.WHISPER:
+            self._init_whisper()
+        elif engine == STTEngine.VOSK:
+            self._init_vosk()
     
     def _init_recognizer(self):
         """Inicializa el reconocedor según el motor seleccionado"""
@@ -68,10 +100,14 @@ class SpeechToText:
                 import whisper
                 # Modelo 'base' es un buen balance entre velocidad y precisión
                 # Opciones: tiny, base, small, medium, large
-                self._whisper_model = whisper.load_model("base")
-                logger.info("Modelo Whisper cargado correctamente")
+                logger.info(f"Cargando modelo Whisper '{self.whisper_model_name}'... (esto puede tomar un momento)")
+                self._whisper_model = whisper.load_model(self.whisper_model_name)
+                logger.info(f"✅ Modelo Whisper '{self.whisper_model_name}' cargado correctamente (OFFLINE)")
             except ImportError:
                 logger.error("Whisper no instalado. Ejecuta: pip install openai-whisper")
+                raise
+            except Exception as e:
+                logger.error(f"Error cargando Whisper: {e}")
                 raise
     
     def _init_vosk(self):
@@ -79,21 +115,43 @@ class SpeechToText:
         if self._vosk_model is None:
             try:
                 from vosk import Model
-                import os
                 
-                # Buscar modelo en directorio local
-                model_path = os.environ.get("VOSK_MODEL_PATH", "models/vosk-model-es")
-                
-                if not os.path.exists(model_path):
-                    logger.warning(f"Modelo Vosk no encontrado en {model_path}")
+                if not os.path.exists(self.vosk_model_path):
+                    logger.warning(f"Modelo Vosk no encontrado en {self.vosk_model_path}")
                     logger.info("Descarga un modelo de: https://alphacephei.com/vosk/models")
-                    raise FileNotFoundError(f"Modelo Vosk no encontrado: {model_path}")
+                    logger.info("Modelos recomendados para español:")
+                    logger.info("  - vosk-model-es-0.42 (1.4GB, mejor calidad)")
+                    logger.info("  - vosk-model-small-es-0.42 (39MB, ligero)")
+                    raise FileNotFoundError(f"Modelo Vosk no encontrado: {self.vosk_model_path}")
                 
-                self._vosk_model = Model(model_path)
-                logger.info("Modelo Vosk cargado correctamente")
+                logger.info(f"Cargando modelo Vosk desde {self.vosk_model_path}...")
+                self._vosk_model = Model(self.vosk_model_path)
+                logger.info("✅ Modelo Vosk cargado correctamente (OFFLINE)")
             except ImportError:
                 logger.error("Vosk no instalado. Ejecuta: pip install vosk")
                 raise
+    
+    def is_offline_capable(self) -> bool:
+        """Verifica si el motor actual puede funcionar sin internet"""
+        return STTEngine.is_offline(self.engine)
+    
+    def get_engine_info(self) -> dict:
+        """Retorna información sobre el motor actual"""
+        info = {
+            "engine": self.engine.value,
+            "offline": self.is_offline_capable(),
+            "language": self.language,
+            "status": "ready"
+        }
+        
+        if self.engine == STTEngine.WHISPER:
+            info["model"] = self.whisper_model_name
+            info["model_loaded"] = self._whisper_model is not None
+        elif self.engine == STTEngine.VOSK:
+            info["model_path"] = self.vosk_model_path
+            info["model_loaded"] = self._vosk_model is not None
+        
+        return info
     
     def recognize_from_microphone(
         self, 
@@ -260,7 +318,7 @@ class SpeechToText:
             return None, str(e)
     
     def _recognize_whisper(self, audio) -> str:
-        """Reconoce audio usando Whisper"""
+        """Reconoce audio usando Whisper (OFFLINE)"""
         self._init_whisper()
         
         # Convertir AudioData a archivo temporal WAV
@@ -269,9 +327,12 @@ class SpeechToText:
             tmp_path = tmp.name
         
         try:
+            # Extraer código de idioma base (es-ES -> es, en-US -> en)
+            lang_code = self.language.split("-")[0] if "-" in self.language else self.language
+            
             result = self._whisper_model.transcribe(
                 tmp_path,
-                language="es",
+                language=lang_code,
                 fp16=False  # Desactivar para CPU
             )
             return result["text"].strip()
@@ -279,7 +340,7 @@ class SpeechToText:
             os.unlink(tmp_path)
     
     def _recognize_vosk(self, audio) -> str:
-        """Reconoce audio usando Vosk"""
+        """Reconoce audio usando Vosk (OFFLINE)"""
         self._init_vosk()
         
         from vosk import KaldiRecognizer
@@ -306,3 +367,25 @@ class SpeechToText:
     def set_microphone(self, device_index: int):
         """Configura el micrófono a usar por índice"""
         self._mic_device_index = device_index
+    
+    @classmethod
+    def create_offline_instance(cls, language: str = "es-ES", engine: str = "whisper", whisper_model: str = "base", vosk_model_path: Optional[str] = None) -> 'SpeechToText':
+        """
+        Crea una instancia configurada para modo offline.
+        
+        Args:
+            language: Código de idioma
+            engine: "whisper" o "vosk"
+            whisper_model: Modelo de Whisper a usar
+            vosk_model_path: Ruta al modelo Vosk
+            
+        Returns:
+            Instancia de SpeechToText configurada para offline
+        """
+        engine_enum = STTEngine.WHISPER if engine.lower() == "whisper" else STTEngine.VOSK
+        return cls(
+            engine=engine_enum,
+            language=language,
+            whisper_model=whisper_model,
+            vosk_model_path=vosk_model_path
+        )

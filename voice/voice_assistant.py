@@ -1,6 +1,7 @@
 """
 Asistente de voz completo
 Integra STT + NLP Pipeline + TTS para control por voz
+Soporta modo OFFLINE completo sin conexión a internet
 """
 import logging
 import asyncio
@@ -328,6 +329,7 @@ class VoiceAssistant:
     Asistente de voz completo para control domótico.
     Integra reconocimiento de voz, procesamiento NLP y síntesis de voz.
     Soporta español e inglés.
+    Incluye modo OFFLINE completo.
     """
     
     def __init__(
@@ -337,7 +339,10 @@ class VoiceAssistant:
         tts_voice: TTSVoice = TTSVoice.MX_DALIA,
         language: str = "es-ES",
         wake_words: Optional[list] = None,
-        nlp_pipeline = None
+        nlp_pipeline = None,
+        offline_mode: bool = False,
+        whisper_model: str = "base",
+        vosk_model_path: Optional[str] = None
     ):
         """
         Inicializa el asistente de voz.
@@ -349,11 +354,35 @@ class VoiceAssistant:
             language: Código de idioma para STT (es-ES, en-US, etc.)
             wake_words: Palabras de activación (ej: ["hey casa", "hola casa"])
             nlp_pipeline: Pipeline NLP personalizado (opcional)
+            offline_mode: Si es True, fuerza motores offline automáticamente
+            whisper_model: Modelo de Whisper para modo offline
+            vosk_model_path: Ruta al modelo Vosk
         """
         # Detect base language from locale
         self.base_language = "en" if language.startswith("en") else "es"
+        self.offline_mode = offline_mode
         
-        self.stt = SpeechToText(engine=stt_engine, language=language)
+        # Si está en modo offline, forzar motores offline
+        if offline_mode:
+            logger.info("🔌 Modo OFFLINE activado - usando motores locales")
+            
+            # Usar Whisper por defecto para STT offline (mejor calidad)
+            if not STTEngine.is_offline(stt_engine):
+                stt_engine = STTEngine.WHISPER
+                logger.info(f"  → STT: Whisper (modelo: {whisper_model})")
+            
+            # Usar pyttsx3 por defecto para TTS offline
+            if not TTSEngine.is_offline(tts_engine):
+                tts_engine = TTSEngine.PYTTSX3
+                logger.info(f"  → TTS: pyttsx3")
+        
+        # Inicializar STT con parámetros para offline
+        self.stt = SpeechToText(
+            engine=stt_engine, 
+            language=language,
+            whisper_model=whisper_model,
+            vosk_model_path=vosk_model_path
+        )
         self.tts = TextToSpeech(engine=tts_engine, voice=tts_voice, language=self.base_language)
         
         # Set wake words based on language
@@ -370,6 +399,62 @@ class VoiceAssistant:
         
         # Set response generator language
         ResponseGenerator.set_language(self.base_language)
+        
+        # Log configuración
+        logger.info(f"Asistente de voz configurado:")
+        logger.info(f"  - STT: {stt_engine.value} (offline: {self.stt.is_offline_capable()})")
+        logger.info(f"  - TTS: {tts_engine.value} (offline: {self.tts.is_offline_capable()})")
+        logger.info(f"  - Idioma: {language}")
+    
+    def is_fully_offline(self) -> bool:
+        """Verifica si el asistente puede funcionar completamente sin internet"""
+        return self.stt.is_offline_capable() and self.tts.is_offline_capable()
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Retorna el estado completo del asistente"""
+        return {
+            "state": self.state.value,
+            "offline_mode": self.offline_mode,
+            "fully_offline_capable": self.is_fully_offline(),
+            "stt": self.stt.get_engine_info(),
+            "tts": self.tts.get_engine_info(),
+            "language": self.base_language,
+            "wake_words": self.wake_words
+        }
+    
+    @classmethod
+    def create_offline_instance(
+        cls,
+        language: str = "es-ES",
+        stt_engine: str = "whisper",
+        tts_engine: str = "pyttsx3",
+        whisper_model: str = "base",
+        vosk_model_path: Optional[str] = None
+    ) -> 'VoiceAssistant':
+        """
+        Factory method para crear un asistente completamente offline.
+        
+        Args:
+            language: Código de idioma (es-ES, en-US, etc.)
+            stt_engine: Motor STT offline ("whisper" o "vosk")
+            tts_engine: Motor TTS offline ("pyttsx3" o "espeak")
+            whisper_model: Modelo de Whisper
+            vosk_model_path: Ruta al modelo Vosk
+            
+        Returns:
+            Instancia de VoiceAssistant configurada para offline
+        """
+        stt_enum = STTEngine.WHISPER if stt_engine.lower() == "whisper" else STTEngine.VOSK
+        tts_enum = TTSEngine.PYTTSX3 if tts_engine.lower() == "pyttsx3" else TTSEngine.ESPEAK
+        
+        return cls(
+            stt_engine=stt_enum,
+            tts_engine=tts_enum,
+            language=language,
+            offline_mode=True,
+            whisper_model=whisper_model,
+            vosk_model_path=vosk_model_path
+        )
     
     @property
     def nlp_pipeline(self):

@@ -2,6 +2,7 @@
 Router para endpoints de control por voz (STT/TTS)
 Bilingual voice control - Spanish and English support
 Permite enviar audio y recibir respuestas de voz
+Soporta modo OFFLINE completo sin conexión a internet
 """
 import logging
 from typing import Optional
@@ -9,6 +10,8 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Query, status
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 import io
+
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -72,19 +75,61 @@ class STTResult(BaseModel):
 _voice_assistant = None
 
 
-def get_voice_assistant():
-    """Obtiene o crea la instancia del asistente de voz"""
+def get_voice_assistant(force_offline: Optional[bool] = None):
+    """
+    Obtiene o crea la instancia del asistente de voz.
+    
+    Args:
+        force_offline: Si es True/False, sobrescribe la configuración.
+                      Si es None, usa la configuración de settings.
+    """
     global _voice_assistant
-    if _voice_assistant is None:
-        from voice import VoiceAssistant
-        from voice.speech_to_text import STTEngine
-        from voice.text_to_speech import TTSEngine, TTSVoice
-        
-        _voice_assistant = VoiceAssistant(
-            stt_engine=STTEngine.GOOGLE,
-            tts_engine=TTSEngine.GTTS  # gTTS es más estable que Edge TTS
-        )
-        logger.info("Asistente de voz inicializado")
+    
+    # Determinar modo offline
+    offline_mode = force_offline if force_offline is not None else settings.OFFLINE_MODE
+    
+    # Si ya existe y tiene la misma configuración, reutilizar
+    if _voice_assistant is not None:
+        if _voice_assistant.offline_mode == offline_mode:
+            return _voice_assistant
+        # Configuración diferente, recrear
+        logger.info(f"Recreando asistente con offline_mode={offline_mode}")
+    
+    from voice import VoiceAssistant
+    from voice.speech_to_text import STTEngine
+    from voice.text_to_speech import TTSEngine, TTSVoice
+    
+    # Mapear configuración de settings a enums
+    stt_engine_map = {
+        "google": STTEngine.GOOGLE,
+        "google_cloud": STTEngine.GOOGLE_CLOUD,
+        "whisper": STTEngine.WHISPER,
+        "vosk": STTEngine.VOSK,
+        "sphinx": STTEngine.SPHINX,
+    }
+    
+    tts_engine_map = {
+        "edge_tts": TTSEngine.EDGE_TTS,
+        "gtts": TTSEngine.GTTS,
+        "pyttsx3": TTSEngine.PYTTSX3,
+        "espeak": TTSEngine.ESPEAK,
+    }
+    
+    stt_engine = stt_engine_map.get(settings.STT_ENGINE.lower(), STTEngine.GOOGLE)
+    tts_engine = tts_engine_map.get(settings.TTS_ENGINE.lower(), TTSEngine.GTTS)
+    
+    _voice_assistant = VoiceAssistant(
+        stt_engine=stt_engine,
+        tts_engine=tts_engine,
+        tts_voice=settings.TTS_VOICE,
+        language=settings.VOICE_LANGUAGE,
+        offline_mode=offline_mode,
+        whisper_model=settings.WHISPER_MODEL,
+        vosk_model_path=settings.VOSK_MODEL_PATH
+    )
+    
+    mode_str = "OFFLINE" if offline_mode else "ONLINE"
+    logger.info(f"✅ Asistente de voz inicializado en modo {mode_str}")
     
     return _voice_assistant
 
@@ -398,84 +443,126 @@ async def list_voices(
 @router.get(
     "/engines",
     summary="List available engines / Listar motores disponibles",
-    description="Returns information about available STT and TTS engines for voice control"
+    description="Returns information about available STT and TTS engines for voice control, including offline options"
 )
 async def list_engines():
     """Lista los motores de voz disponibles"""
     
     return {
-        "stt_engines": [
-            {
-                "id": "google",
-                "name": "Google Speech Recognition",
-                "type": "online",
-                "free": True,
-                "quality": "alta",
-                "description": "Reconocimiento online gratuito de Google"
-            },
-            {
-                "id": "google_cloud",
-                "name": "Google Cloud Speech",
-                "type": "online",
-                "free": False,
-                "quality": "muy alta",
-                "description": "API de pago de Google Cloud"
-            },
-            {
-                "id": "whisper",
-                "name": "OpenAI Whisper",
-                "type": "offline",
-                "free": True,
-                "quality": "muy alta",
-                "description": "Modelo local de OpenAI (requiere instalación adicional)"
-            },
-            {
-                "id": "vosk",
-                "name": "Vosk",
-                "type": "offline",
-                "free": True,
-                "quality": "buena",
-                "description": "Modelo ligero offline (requiere modelo español)"
-            }
-        ],
-        "tts_engines": [
-            {
-                "id": "edge_tts",
-                "name": "Microsoft Edge TTS",
-                "type": "online",
-                "free": True,
-                "quality": "muy alta",
-                "description": "Voces neurales de Microsoft (RECOMENDADO)"
-            },
-            {
-                "id": "gtts",
-                "name": "Google TTS",
-                "type": "online",
-                "free": True,
-                "quality": "buena",
-                "description": "Google Text-to-Speech"
-            },
-            {
-                "id": "pyttsx3",
-                "name": "pyttsx3",
-                "type": "offline",
-                "free": True,
-                "quality": "básica",
-                "description": "Motor offline del sistema operativo"
-            }
-        ],
+        "stt_engines": {
+            "online": [
+                {
+                    "id": "google",
+                    "name": "Google Speech Recognition",
+                    "type": "online",
+                    "free": True,
+                    "quality": "alta",
+                    "description": "Reconocimiento online gratuito de Google",
+                    "requires_internet": True
+                },
+                {
+                    "id": "google_cloud",
+                    "name": "Google Cloud Speech",
+                    "type": "online",
+                    "free": False,
+                    "quality": "muy alta",
+                    "description": "API de pago de Google Cloud",
+                    "requires_internet": True
+                }
+            ],
+            "offline": [
+                {
+                    "id": "whisper",
+                    "name": "OpenAI Whisper",
+                    "type": "offline",
+                    "free": True,
+                    "quality": "muy alta",
+                    "description": "Modelo local de OpenAI - RECOMENDADO para offline",
+                    "requires_internet": False,
+                    "install": "pip install openai-whisper",
+                    "models": ["tiny", "base", "small", "medium", "large"]
+                },
+                {
+                    "id": "vosk",
+                    "name": "Vosk",
+                    "type": "offline",
+                    "free": True,
+                    "quality": "buena",
+                    "description": "Modelo ligero offline",
+                    "requires_internet": False,
+                    "install": "pip install vosk",
+                    "models_url": "https://alphacephei.com/vosk/models"
+                }
+            ]
+        },
+        "tts_engines": {
+            "online": [
+                {
+                    "id": "edge_tts",
+                    "name": "Microsoft Edge TTS",
+                    "type": "online",
+                    "free": True,
+                    "quality": "muy alta",
+                    "description": "Voces neurales de Microsoft",
+                    "requires_internet": True
+                },
+                {
+                    "id": "gtts",
+                    "name": "Google TTS",
+                    "type": "online",
+                    "free": True,
+                    "quality": "buena",
+                    "description": "Google Text-to-Speech",
+                    "requires_internet": True
+                }
+            ],
+            "offline": [
+                {
+                    "id": "pyttsx3",
+                    "name": "pyttsx3",
+                    "type": "offline",
+                    "free": True,
+                    "quality": "básica",
+                    "description": "Motor offline del sistema operativo - RECOMENDADO",
+                    "requires_internet": False,
+                    "install": "pip install pyttsx3"
+                },
+                {
+                    "id": "espeak",
+                    "name": "eSpeak",
+                    "type": "offline",
+                    "free": True,
+                    "quality": "básica",
+                    "description": "Motor ligero offline",
+                    "requires_internet": False,
+                    "install": "Windows: choco install espeak | Linux: apt install espeak"
+                }
+            ]
+        },
         "default": {
-            "stt": "google",
-            "tts": "edge_tts",
-            "voice": "es-MX-DaliaNeural"
+            "online": {
+                "stt": "google",
+                "tts": "edge_tts",
+                "voice": "es-MX-DaliaNeural"
+            },
+            "offline": {
+                "stt": "whisper",
+                "tts": "pyttsx3",
+                "whisper_model": "base"
+            }
+        },
+        "current_config": {
+            "offline_mode": settings.OFFLINE_MODE,
+            "stt_engine": settings.STT_ENGINE,
+            "tts_engine": settings.TTS_ENGINE
         }
     }
 
 
 @router.get(
     "/status",
-    summary="Estado del módulo de voz",
-    description="Verifica si los componentes de voz están disponibles"
+    summary="Estado del módulo de voz / Voice module status",
+    description="Verifica si los componentes de voz están disponibles y muestra el modo (online/offline)"
 )
 async def voice_status():
     """Verifica el estado del módulo de voz"""
@@ -486,7 +573,9 @@ async def voice_status():
         "gtts": False,
         "pyttsx3": False,
         "pygame": False,
-        "pyaudio": False
+        "pyaudio": False,
+        "whisper": False,
+        "vosk": False
     }
     
     # Verificar dependencias
@@ -526,15 +615,210 @@ async def voice_status():
     except ImportError:
         pass
     
-    # Determinar si el módulo está operativo
-    stt_ready = status_info["speech_recognition"]
-    tts_ready = status_info["edge_tts"] or status_info["gtts"] or status_info["pyttsx3"]
+    try:
+        import whisper
+        status_info["whisper"] = True
+    except ImportError:
+        pass
+    
+    try:
+        import vosk
+        status_info["vosk"] = True
+    except ImportError:
+        pass
+    
+    # Determinar capacidades
+    stt_online = status_info["speech_recognition"]
+    stt_offline = status_info["whisper"] or status_info["vosk"]
+    tts_online = status_info["edge_tts"] or status_info["gtts"]
+    tts_offline = status_info["pyttsx3"]
+    
+    # Modo actual de configuración
+    current_mode = "offline" if settings.OFFLINE_MODE else "online"
+    
+    # Verificar si el modo actual es posible
+    if settings.OFFLINE_MODE:
+        mode_possible = stt_offline and tts_offline
+    else:
+        mode_possible = stt_online and tts_online
     
     return {
-        "operational": stt_ready and tts_ready,
-        "stt_ready": stt_ready,
-        "tts_ready": tts_ready,
+        "operational": mode_possible,
+        "current_mode": current_mode,
+        "offline_capable": stt_offline and tts_offline,
+        "online_capable": stt_online and tts_online,
+        "stt": {
+            "online_ready": stt_online,
+            "offline_ready": stt_offline,
+            "configured_engine": settings.STT_ENGINE
+        },
+        "tts": {
+            "online_ready": tts_online,
+            "offline_ready": tts_offline,
+            "configured_engine": settings.TTS_ENGINE
+        },
         "components": status_info,
-        "message": "Módulo de voz operativo" if (stt_ready and tts_ready) 
-                   else "Instala dependencias: pip install SpeechRecognition PyAudio edge-tts pygame"
+        "configuration": {
+            "offline_mode": settings.OFFLINE_MODE,
+            "stt_engine": settings.STT_ENGINE,
+            "tts_engine": settings.TTS_ENGINE,
+            "whisper_model": settings.WHISPER_MODEL,
+            "voice_language": settings.VOICE_LANGUAGE
+        },
+        "message": _get_status_message(mode_possible, settings.OFFLINE_MODE, stt_offline, tts_offline)
     }
+
+
+def _get_status_message(operational: bool, offline_mode: bool, stt_offline: bool, tts_offline: bool) -> str:
+    """Genera mensaje de estado descriptivo"""
+    if operational:
+        mode = "OFFLINE" if offline_mode else "ONLINE"
+        return f"✅ Módulo de voz operativo en modo {mode}"
+    
+    if offline_mode:
+        missing = []
+        if not stt_offline:
+            missing.append("STT offline (instala: pip install openai-whisper)")
+        if not tts_offline:
+            missing.append("TTS offline (instala: pip install pyttsx3)")
+        return f"❌ Faltan componentes para modo offline: {', '.join(missing)}"
+    else:
+        return "❌ Instala dependencias: pip install SpeechRecognition PyAudio edge-tts pygame"
+
+
+@router.get(
+    "/offline/status",
+    summary="Estado del modo offline",
+    description="Verifica específicamente si el sistema puede funcionar sin internet"
+)
+async def offline_status():
+    """Verifica el estado del modo offline"""
+    
+    checks = {
+        "whisper_installed": False,
+        "vosk_installed": False,
+        "pyttsx3_installed": False,
+        "espeak_available": False,
+        "vosk_model_exists": False
+    }
+    
+    # Verificar Whisper
+    try:
+        import whisper
+        checks["whisper_installed"] = True
+    except ImportError:
+        pass
+    
+    # Verificar Vosk
+    try:
+        import vosk
+        checks["vosk_installed"] = True
+        
+        # Verificar si existe el modelo
+        import os
+        if os.path.exists(settings.VOSK_MODEL_PATH):
+            checks["vosk_model_exists"] = True
+    except ImportError:
+        pass
+    
+    # Verificar pyttsx3
+    try:
+        import pyttsx3
+        checks["pyttsx3_installed"] = True
+    except ImportError:
+        pass
+    
+    # Verificar eSpeak
+    try:
+        import subprocess
+        result = subprocess.run(["espeak", "--version"], capture_output=True)
+        checks["espeak_available"] = result.returncode == 0
+    except:
+        pass
+    
+    # Determinar capacidad offline
+    stt_ready = checks["whisper_installed"] or (checks["vosk_installed"] and checks["vosk_model_exists"])
+    tts_ready = checks["pyttsx3_installed"] or checks["espeak_available"]
+    
+    recommendations = []
+    if not stt_ready:
+        recommendations.append({
+            "component": "STT",
+            "recommendation": "Instala Whisper: pip install openai-whisper",
+            "alternative": "O Vosk: pip install vosk + descargar modelo de https://alphacephei.com/vosk/models"
+        })
+    if not tts_ready:
+        recommendations.append({
+            "component": "TTS", 
+            "recommendation": "Instala pyttsx3: pip install pyttsx3",
+            "alternative": "O eSpeak: https://espeak.sourceforge.net/"
+        })
+    
+    return {
+        "offline_ready": stt_ready and tts_ready,
+        "stt_offline_ready": stt_ready,
+        "tts_offline_ready": tts_ready,
+        "checks": checks,
+        "recommendations": recommendations,
+        "current_config": {
+            "offline_mode": settings.OFFLINE_MODE,
+            "stt_engine": settings.STT_ENGINE,
+            "tts_engine": settings.TTS_ENGINE,
+            "whisper_model": settings.WHISPER_MODEL,
+            "vosk_model_path": settings.VOSK_MODEL_PATH
+        }
+    }
+
+
+@router.post(
+    "/offline/enable",
+    summary="Habilitar modo offline",
+    description="Activa el modo offline usando motores locales (Whisper + pyttsx3)"
+)
+async def enable_offline_mode():
+    """Habilita el modo offline"""
+    global _voice_assistant
+    
+    try:
+        # Reinicializar asistente en modo offline
+        _voice_assistant = None
+        assistant = get_voice_assistant(force_offline=True)
+        
+        return {
+            "success": True,
+            "message": "🔌 Modo OFFLINE activado",
+            "status": assistant.get_status()
+        }
+    except Exception as e:
+        logger.error(f"Error activando modo offline: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error activando modo offline: {str(e)}"
+        )
+
+
+@router.post(
+    "/online/enable",
+    summary="Habilitar modo online",
+    description="Activa el modo online usando servicios en la nube (Google STT + gTTS)"
+)
+async def enable_online_mode():
+    """Habilita el modo online"""
+    global _voice_assistant
+    
+    try:
+        # Reinicializar asistente en modo online
+        _voice_assistant = None
+        assistant = get_voice_assistant(force_offline=False)
+        
+        return {
+            "success": True,
+            "message": "🌐 Modo ONLINE activado",
+            "status": assistant.get_status()
+        }
+    except Exception as e:
+        logger.error(f"Error activando modo online: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error activando modo online: {str(e)}"
+        )

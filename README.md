@@ -1,16 +1,22 @@
 # 🏠 Smart Home NLP Engine
 
-Microservicio de Procesamiento de Lenguaje Natural (NLP) con control por voz para sistemas domóticos inteligentes.
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109-green.svg)](https://fastapi.tiangolo.com)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Offline](https://img.shields.io/badge/Offline-Compatible-orange.svg)](#-modo-offline-completo)
+
+Microservicio de Procesamiento de Lenguaje Natural (NLP) con control por voz para sistemas domóticos inteligentes. **Funciona completamente offline.**
 
 ## 📋 Descripción
 
 Este microservicio recibe comandos en lenguaje natural (**español e inglés**) y devuelve la intención del usuario junto con el dispositivo identificado. Incluye:
 
-- **NLP Pipeline**: Interpretación de comandos con reglas + LLM fallback
-- **Control por Voz**: Speech-to-Text (STT) y Text-to-Speech (TTS)
-- **Detección de Negaciones**: Reconoce comandos negados
-- **Bilingüe**: Soporte completo para español e inglés
-- **API REST**: Endpoints para integración con cualquier sistema
+- **🔌 Modo Offline**: Funciona 100% sin conexión a internet
+- **NLP Pipeline**: Interpretación de comandos con reglas + LLM fallback (Ollama)
+- **🎤 Control por Voz**: Speech-to-Text (Whisper/Google) y Text-to-Speech (pyttsx3/gTTS)
+- **Detección de Negaciones**: Reconoce comandos negados ("no enciendas la luz")
+- **🌐 Bilingüe**: Soporte completo para español e inglés
+- **API REST**: Endpoints documentados para integración con cualquier sistema
 
 ---
 
@@ -18,8 +24,9 @@ Este microservicio recibe comandos en lenguaje natural (**español e inglés**) 
 
 | Característica         | Descripción                                                    |
 | ---------------------- | -------------------------------------------------------------- |
+| **🔌 Modo OFFLINE**    | Funciona completamente sin internet (Whisper + pyttsx3 + Ollama) |
 | **Pipeline Híbrido**   | Reglas regex (~2ms) + Ollama/Phi3 (~2-5s) como fallback        |
-| **🎤 Control por Voz** | STT (Google) + TTS (gTTS) integrados                           |
+| **🎤 Control por Voz** | STT (Whisper/Google/Vosk) + TTS (pyttsx3/gTTS/Edge) integrados |
 | **🌐 Bilingüe**        | Español e Inglés (comandos, respuestas, TTS)                   |
 | **Negaciones**         | 5 tipos: directa, pronombre, compuesta, prohibitiva, implícita |
 | **Multiregional**      | ES: España, México, Argentina / EN: US, UK                     |
@@ -43,8 +50,12 @@ python -m venv venv
 # Instalar dependencias
 pip install -r requirements.txt
 
+# Configurar variables de entorno
+cp .env.example .env
+# Editar .env según tus necesidades
+
 # Ejecutar servidor
-python main.py
+python run.py
 ```
 
 **Servidor disponible en:** http://localhost:8001
@@ -109,6 +120,49 @@ pip install SpeechRecognition PyAudio gTTS pygame
 pip install pipwin && pipwin install pyaudio
 ```
 
+### 🔌 Modo OFFLINE (Sin Internet)
+
+Para usar el sistema completamente sin conexión a internet:
+
+```bash
+# Instalar dependencias offline
+pip install openai-whisper pyttsx3
+
+# Instalar ffmpeg (requerido por Whisper)
+# Windows:
+choco install ffmpeg
+# o
+winget install ffmpeg
+
+# Linux/Mac:
+sudo apt install ffmpeg  # Ubuntu/Debian
+brew install ffmpeg       # macOS
+
+# Descargar modelo Whisper (mientras tienes internet)
+python -c "import whisper; whisper.load_model('base')"
+# Para mejor precisión en español:
+python -c "import whisper; whisper.load_model('small')"
+```
+
+**Configuración en `.env`:**
+
+```env
+OFFLINE_MODE=True
+STT_ENGINE=whisper
+WHISPER_MODEL=small    # base=rápido, small=mejor precisión
+TTS_ENGINE=pyttsx3
+```
+
+O activar en tiempo de ejecución via API:
+
+```bash
+# Activar modo offline
+curl -X POST http://localhost:8001/voice/offline/enable
+
+# Ver estado
+curl http://localhost:8001/voice/offline/status
+```
+
 ### Ollama (Opcional - LLM Fallback)
 
 ```bash
@@ -128,8 +182,9 @@ smart-home-nlp-engine/
 ├── run.py                   # 🎮 Ejecutor interactivo (texto + voz + API)
 ├── main.py                  # 🚀 Servidor FastAPI
 ├── requirements.txt         # Dependencias
+├── .env.example             # ⚙️ Plantilla de configuración
 ├── config/
-│   └── settings.py          # Configuración
+│   └── settings.py          # Configuración centralizada
 ├── data/
 │   └── devices.json         # Dispositivos configurados
 ├── database/
@@ -146,12 +201,12 @@ smart-home-nlp-engine/
 │   ├── normalizer.py        # Normalización texto
 │   └── matchers.py          # IntentMatcher, DeviceMatcher
 ├── voice/                   # 🎤 Módulo de Voz
-│   ├── speech_to_text.py    # STT (Google, Whisper, Vosk)
-│   ├── text_to_speech.py    # TTS (gTTS, Edge, pyttsx3)
+│   ├── speech_to_text.py    # STT (Whisper, Google, Vosk)
+│   ├── text_to_speech.py    # TTS (pyttsx3, gTTS, Edge)
 │   └── voice_assistant.py   # Asistente integrado
 ├── routers/
 │   ├── devices.py           # API dispositivos
-│   └── voice.py             # API voz
+│   └── voice.py             # API voz + endpoints offline
 ├── services/
 │   ├── nlp_pipeline.py      # Pipeline principal
 │   └── device_service.py    # Servicio dispositivos
@@ -306,18 +361,92 @@ python examples/voice_demo.py --mode test_stt
 ### Motores Disponibles
 
 **STT (Speech-to-Text):**
-| Motor | Tipo | Calidad |
-|-------|------|---------|
-| `google` | Online | ⭐⭐⭐⭐ (DEFAULT) |
-| `whisper` | Offline | ⭐⭐⭐⭐⭐ |
-| `vosk` | Offline | ⭐⭐⭐ |
+| Motor | Tipo | Calidad | Velocidad | Internet |
+|-------|------|---------|-----------|----------|
+| `whisper` | Offline | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ❌ No necesario |
+| `google` | Online | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ✅ Requerido |
+| `vosk` | Offline | ⭐⭐⭐ | ⭐⭐⭐⭐ | ❌ No necesario |
 
 **TTS (Text-to-Speech):**
-| Motor | Tipo | Calidad |
-|-------|------|---------|
-| `gtts` | Online | ⭐⭐⭐⭐ (DEFAULT) |
-| `edge_tts` | Online | ⭐⭐⭐⭐⭐ |
-| `pyttsx3` | Offline | ⭐⭐ |
+| Motor | Tipo | Calidad | Velocidad | Internet |
+|-------|------|---------|-----------|----------|
+| `pyttsx3` | Offline | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ❌ No necesario |
+| `gtts` | Online | ⭐⭐⭐⭐ | ⭐⭐⭐ | ✅ Requerido |
+| `edge_tts` | Online | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ✅ Requerido |
+| `espeak` | Offline | ⭐⭐ | ⭐⭐⭐⭐⭐ | ❌ No necesario |
+
+---
+
+## 🔌 Modo OFFLINE Completo
+
+El sistema puede funcionar **completamente sin conexión a internet**:
+
+### Componentes Offline
+
+| Componente | Motor Offline   | Descripción                          |
+| ---------- | --------------- | ------------------------------------ |
+| **STT**    | Whisper         | OpenAI Whisper local, alta precisión |
+| **TTS**    | pyttsx3         | Motor del sistema operativo          |
+| **NLP**    | Reglas + Ollama | Sistema de reglas + LLM local        |
+
+### Configuración Rápida
+
+1. **Instalar dependencias:**
+
+```bash
+pip install openai-whisper pyttsx3
+# + ffmpeg en el sistema
+```
+
+2. **Crear archivo `.env`:**
+
+```env
+OFFLINE_MODE=True
+STT_ENGINE=whisper
+WHISPER_MODEL=base
+TTS_ENGINE=pyttsx3
+```
+
+3. **Ejecutar:**
+
+```bash
+python run.py
+```
+
+### Endpoints de Control Offline
+
+| Endpoint                | Método | Descripción                 |
+| ----------------------- | ------ | --------------------------- |
+| `/voice/offline/status` | GET    | Verificar capacidad offline |
+| `/voice/offline/enable` | POST   | Activar modo offline        |
+| `/voice/online/enable`  | POST   | Volver a modo online        |
+| `/voice/status`         | GET    | Estado completo del módulo  |
+
+### Ejemplo de Uso
+
+```bash
+# Ver si el sistema puede funcionar offline
+curl http://localhost:8001/voice/offline/status
+
+# Activar modo offline
+curl -X POST http://localhost:8001/voice/offline/enable
+
+# Usar normalmente (ahora funciona sin internet)
+curl -X POST http://localhost:8001/voice/interpret \
+  -F "audio=@comando.wav"
+```
+
+### Modelos de Whisper
+
+| Modelo   | Tamaño | RAM    | Velocidad  | Precisión  | Recomendado para |
+| -------- | ------ | ------ | ---------- | ---------- | ---------------- |
+| `tiny`   | 39 MB  | ~1 GB  | ⭐⭐⭐⭐⭐ | ⭐⭐       | Pruebas rápidas |
+| `base`   | 142 MB | ~1 GB  | ⭐⭐⭐⭐   | ⭐⭐⭐     | Uso general |
+| `small`  | 483 MB | ~2 GB  | ⭐⭐⭐     | ⭐⭐⭐⭐   | **Español (recomendado)** |
+| `medium` | 1.5 GB | ~5 GB  | ⭐⭐       | ⭐⭐⭐⭐⭐ | Alta precisión |
+| `large`  | 3 GB   | ~10 GB | ⭐         | ⭐⭐⭐⭐⭐ | Máxima precisión |
+
+**Recomendación para español:** `small` (mejor balance velocidad/precisión para comandos de voz en español).
 
 ---
 
@@ -384,21 +513,43 @@ print(neg_en.is_negated)      # True
 
 ### Variables de Entorno (.env)
 
+Copia `.env.example` a `.env` y ajusta los valores:
+
+```bash
+cp .env.example .env
+```
+
 ```env
+# Aplicación
 APP_NAME=NLP Service - Smart Home
-DEBUG=True
+DEBUG=False
 PORT=8001
 HOST=0.0.0.0
-
-# Ollama (opcional)
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=phi3
 
 # Base de datos
 DATABASE_URL=sqlite:///./nlp_smart_home.db
 
-# Backend IoT (para /execute)
-IOT_BACKEND_URL=http://iot-backend:8000
+# Ollama LLM (fallback cuando las reglas no coinciden)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=phi3
+
+# Backend IoT (para endpoint /execute)
+IOT_BACKEND_URL=http://localhost:3000
+
+# ============================================
+# MODO OFFLINE
+# ============================================
+OFFLINE_MODE=True
+
+# STT: google, whisper, vosk
+STT_ENGINE=whisper
+WHISPER_MODEL=small
+
+# TTS: gtts, edge_tts, pyttsx3, espeak
+TTS_ENGINE=pyttsx3
+
+# Idioma
+VOICE_LANGUAGE=es-ES
 ```
 
 ---
@@ -513,6 +664,20 @@ MIT License - Proyecto de código abierto para sistemas domóticos inteligentes.
 ## 🤝 Contribuciones
 
 ¡Las contribuciones son bienvenidas! Por favor, abre un issue o pull request.
+
+1. Fork el repositorio
+2. Crea una rama (`git checkout -b feature/nueva-caracteristica`)
+3. Commit tus cambios (`git commit -m 'Add: nueva característica'`)
+4. Push a la rama (`git push origin feature/nueva-caracteristica`)
+5. Abre un Pull Request
+
+---
+
+## 📞 Soporte
+
+Si tienes problemas o preguntas:
+- Abre un [Issue](https://github.com/xavierdev25/smart-home-nlp-engine/issues)
+- Revisa la [documentación API](http://localhost:8001/docs)
 
 ---
 

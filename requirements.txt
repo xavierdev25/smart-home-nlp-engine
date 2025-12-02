@@ -1,44 +1,62 @@
 # ============================================
-# NLP AI House - Smart Home Voice Controller
-# Bilingual: Español / English
+# Smart Home NLP Engine - Dependencies
+# Bilingual Voice Controller (ES/EN)
+# Supports OFFLINE mode
 # ============================================
 
-# FastAPI y servidor
+# FastAPI and Server
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
-python-multipart==0.0.6  # Requerido para UploadFile (subida de audio)
+python-multipart==0.0.6  # Required for UploadFile (audio upload)
 
-# Cliente HTTP para integración externa (Ollama, etc.)
+# HTTP Client for external integration (Ollama, IoT backend)
 httpx==0.26.0
 
-# Base de datos
+# Database
 sqlalchemy==2.0.25
-# Para PostgreSQL (opcional):
+# For PostgreSQL (optional):
 # psycopg2-binary==2.9.9
-# Para MySQL (opcional):
+# For MySQL (optional):
 # pymysql==1.1.0
 
-# Utilidades
+# Utilities
 python-dotenv==1.0.0
 
 # ============================================
-# Control por Voz (STT/TTS)
+# Voice Control (STT/TTS)
 # ============================================
 
-# Speech Recognition (STT) - REQUERIDO para voz
+# Speech Recognition (STT) - REQUIRED for voice mode
 SpeechRecognition==3.10.1
-PyAudio==0.2.14          # Captura de micrófono
+PyAudio==0.2.14          # Microphone capture
 
-# Text to Speech (TTS) - Múltiples motores disponibles:
-edge-tts==6.1.9          # Microsoft Edge TTS (RECOMENDADO - alta calidad, gratis)
-gTTS==2.5.1              # Google TTS (online, gratis, bilingüe ES/EN)
-pyttsx3==2.90            # Offline, multiplataforma
+# Text to Speech (TTS) - Multiple engines available:
+edge-tts==6.1.9          # Microsoft Edge TTS (online, high quality)
+gTTS==2.5.1              # Google TTS (online, free, bilingual ES/EN)
+pyttsx3==2.90            # Offline, cross-platform (REQUIRED for offline)
 
-# Reproducción de audio
-pygame==2.5.2            # Para reproducir audio TTS
+# Audio playback
+pygame==2.5.2            # For playing TTS audio
 
-# Opcional: Reconocimiento offline
-# openai-whisper==20231117  # OpenAI Whisper (requiere ~1GB RAM mínimo)
-# vosk==0.3.45              # Vosk (ligero, offline)
+# ============================================
+# OFFLINE Mode - Local voice recognition
+# ============================================
+
+# OpenAI Whisper - RECOMMENDED for offline (very high quality)
+# Models: tiny (39MB), base (142MB), small (483MB), medium (1.5GB), large (3GB)
+# For Spanish, 'small' model is recommended for best accuracy
+openai-whisper==20231117
+
+# Vosk - Lightweight alternative for offline (optional)
+# Download models from: https://alphacephei.com/vosk/models
+# vosk==0.3.45
+
+# ============================================
+# System Requirements for Whisper
+# ============================================
+# Whisper requires ffmpeg installed on the system:
+# - Windows: choco install ffmpeg  or  winget install ffmpeg
+# - Ubuntu/Debian: sudo apt install ffmpeg
+# - macOS: brew install ffmpeg

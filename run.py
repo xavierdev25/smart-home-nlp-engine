@@ -92,6 +92,7 @@ class SmartHomeAssistant:
         
         try:
             # Importar componentes
+            from config.settings import settings
             from services.nlp_pipeline import nlp_pipeline
             from voice.voice_assistant import VoiceAssistant, ResponseGenerator
             from voice.text_to_speech import TTSEngine, TTSVoice
@@ -100,24 +101,52 @@ class SmartHomeAssistant:
             self.nlp_pipeline = nlp_pipeline
             
             # Configurar idioma
-            stt_lang = "en-US" if self.language == "en" else "es-ES"
-            tts_voice = TTSVoice.EN_US_JENNY if self.language == "en" else TTSVoice.MX_DALIA
+            stt_lang = "en-US" if self.language == "en" else settings.VOICE_LANGUAGE
+            tts_voice = TTSVoice.EN_US_JENNY if self.language == "en" else settings.TTS_VOICE
             
-            # Crear asistente de voz
+            # Mapear configuración de settings a enums
+            stt_engine_map = {
+                "google": STTEngine.GOOGLE,
+                "google_cloud": STTEngine.GOOGLE_CLOUD,
+                "whisper": STTEngine.WHISPER,
+                "vosk": STTEngine.VOSK,
+                "sphinx": STTEngine.SPHINX,
+            }
+            
+            tts_engine_map = {
+                "edge_tts": TTSEngine.EDGE_TTS,
+                "gtts": TTSEngine.GTTS,
+                "pyttsx3": TTSEngine.PYTTSX3,
+                "espeak": TTSEngine.ESPEAK,
+            }
+            
+            # Usar configuración de settings.py (que lee de .env)
+            stt_engine = stt_engine_map.get(settings.STT_ENGINE.lower(), STTEngine.GOOGLE)
+            tts_engine = tts_engine_map.get(settings.TTS_ENGINE.lower(), TTSEngine.GTTS)
+            
+            # Crear asistente de voz con configuración de .env
             self.voice_assistant = VoiceAssistant(
-                stt_engine=STTEngine.GOOGLE,
-                tts_engine=TTSEngine.GTTS,
+                stt_engine=stt_engine,
+                tts_engine=tts_engine,
                 tts_voice=tts_voice,
                 language=stt_lang,
-                nlp_pipeline=nlp_pipeline
+                nlp_pipeline=nlp_pipeline,
+                offline_mode=settings.OFFLINE_MODE,
+                whisper_model=settings.WHISPER_MODEL,
+                vosk_model_path=settings.VOSK_MODEL_PATH
             )
             
             # Configurar idioma de respuestas
             ResponseGenerator.set_language(self.language)
             
             self._initialized = True
-            print(f"{Colors.GREEN}✅ Componentes inicializados{Colors.ENDC}")
+            
+            # Mostrar modo activo
+            mode = "OFFLINE 🔌" if settings.OFFLINE_MODE else "ONLINE 🌐"
+            print(f"{Colors.GREEN}✅ Componentes inicializados ({mode}){Colors.ENDC}")
             print(f"{Colors.CYAN}   Idioma: {'English' if self.language == 'en' else 'Español'}{Colors.ENDC}")
+            print(f"{Colors.CYAN}   STT: {settings.STT_ENGINE} (offline: {self.voice_assistant.stt.is_offline_capable()}){Colors.ENDC}")
+            print(f"{Colors.CYAN}   TTS: {settings.TTS_ENGINE} (offline: {self.voice_assistant.tts.is_offline_capable()}){Colors.ENDC}")
             
         except Exception as e:
             print(f"{Colors.RED}❌ Error inicializando: {e}{Colors.ENDC}")
