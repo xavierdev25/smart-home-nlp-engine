@@ -22,16 +22,16 @@ Este microservicio recibe comandos en lenguaje natural (**español e inglés**) 
 
 ## ✨ Características
 
-| Característica         | Descripción                                                    |
-| ---------------------- | -------------------------------------------------------------- |
+| Característica         | Descripción                                                      |
+| ---------------------- | ---------------------------------------------------------------- |
 | **🔌 Modo OFFLINE**    | Funciona completamente sin internet (Whisper + pyttsx3 + Ollama) |
-| **Pipeline Híbrido**   | Reglas regex (~2ms) + Ollama/Phi3 (~2-5s) como fallback        |
-| **🎤 Control por Voz** | STT (Whisper/Google/Vosk) + TTS (pyttsx3/gTTS/Edge) integrados |
-| **🌐 Bilingüe**        | Español e Inglés (comandos, respuestas, TTS)                   |
-| **Negaciones**         | 5 tipos: directa, pronombre, compuesta, prohibitiva, implícita |
-| **Multiregional**      | ES: España, México, Argentina / EN: US, UK                     |
-| **+200 Aliases**       | Sinónimos para dispositivos y habitaciones                     |
-| **API Documentada**    | Swagger UI + ReDoc + OpenAPI 3.0                               |
+| **Pipeline Híbrido**   | Reglas regex (~2ms) + Ollama/Phi3 (~2-5s) como fallback          |
+| **🎤 Control por Voz** | STT (Whisper/Google/Vosk) + TTS (pyttsx3/gTTS/Edge) integrados   |
+| **🌐 Bilingüe**        | Español e Inglés (comandos, respuestas, TTS)                     |
+| **Negaciones**         | 5 tipos: directa, pronombre, compuesta, prohibitiva, implícita   |
+| **Multiregional**      | ES: España, México, Argentina / EN: US, UK                       |
+| **+200 Aliases**       | Sinónimos para dispositivos y habitaciones                       |
+| **API Documentada**    | Swagger UI + ReDoc + OpenAPI 3.0                                 |
 
 ---
 
@@ -438,13 +438,13 @@ curl -X POST http://localhost:8001/voice/interpret \
 
 ### Modelos de Whisper
 
-| Modelo   | Tamaño | RAM    | Velocidad  | Precisión  | Recomendado para |
-| -------- | ------ | ------ | ---------- | ---------- | ---------------- |
-| `tiny`   | 39 MB  | ~1 GB  | ⭐⭐⭐⭐⭐ | ⭐⭐       | Pruebas rápidas |
-| `base`   | 142 MB | ~1 GB  | ⭐⭐⭐⭐   | ⭐⭐⭐     | Uso general |
+| Modelo   | Tamaño | RAM    | Velocidad  | Precisión  | Recomendado para          |
+| -------- | ------ | ------ | ---------- | ---------- | ------------------------- |
+| `tiny`   | 39 MB  | ~1 GB  | ⭐⭐⭐⭐⭐ | ⭐⭐       | Pruebas rápidas           |
+| `base`   | 142 MB | ~1 GB  | ⭐⭐⭐⭐   | ⭐⭐⭐     | Uso general               |
 | `small`  | 483 MB | ~2 GB  | ⭐⭐⭐     | ⭐⭐⭐⭐   | **Español (recomendado)** |
-| `medium` | 1.5 GB | ~5 GB  | ⭐⭐       | ⭐⭐⭐⭐⭐ | Alta precisión |
-| `large`  | 3 GB   | ~10 GB | ⭐         | ⭐⭐⭐⭐⭐ | Máxima precisión |
+| `medium` | 1.5 GB | ~5 GB  | ⭐⭐       | ⭐⭐⭐⭐⭐ | Alta precisión            |
+| `large`  | 3 GB   | ~10 GB | ⭐         | ⭐⭐⭐⭐⭐ | Máxima precisión          |
 
 **Recomendación para español:** `small` (mejor balance velocidad/precisión para comandos de voz en español).
 
@@ -676,6 +676,7 @@ MIT License - Proyecto de código abierto para sistemas domóticos inteligentes.
 ## 📞 Soporte
 
 Si tienes problemas o preguntas:
+
 - Abre un [Issue](https://github.com/xavierdev25/smart-home-nlp-engine/issues)
 - Revisa la [documentación API](http://localhost:8001/docs)
 
